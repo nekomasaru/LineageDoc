@@ -4,6 +4,7 @@ import Editor, { OnMount, OnChange } from '@monaco-editor/react';
 import { useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import type * as Monaco from 'monaco-editor';
 import { computeDiff } from '@/lib/diff-utils';
+import { getAutoNumbering } from '@/lib/markdown-utils';
 
 interface MonacoWrapperProps {
   value: string;
@@ -31,6 +32,7 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
     const isScrollingFromExternalRef = useRef(false);
     const isSettingValueRef = useRef(false);
     const lastValueRef = useRef(value);
+    const isAutoNumberingRef = useRef(false);
 
     // プロップをrefに保持（イベントハンドラ内で最新値を参照するため）
     const compareWithRef = useRef(compareWith);
@@ -91,7 +93,8 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
       const currentCompareWith = compareWithRef.current;
       const currentActiveBase = activeBaseRef.current;
 
-      if (!currentCompareWith && !currentActiveBase) {
+      // 両方とも undefined の場合のみクリア
+      if (currentCompareWith === undefined && currentActiveBase === undefined) {
         if (decorationsRef.current) decorationsRef.current.clear();
         return;
       }
@@ -104,7 +107,7 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
       const addedLineRanges: Set<number> = new Set();
 
       // 1. 保存済み差分 (compareWith vs currentValue) - 青色
-      if (currentCompareWith) {
+      if (currentCompareWith !== undefined) {
         const baseDiffs = computeDiff(currentCompareWith, currentValue);
         const baseAddedLines: Set<number> = new Set();
         for (const diff of baseDiffs) {
@@ -133,7 +136,7 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
       }
 
       // 2. 未保存差分 (activeBase vs currentValue) - 緑色/黄色
-      if (currentActiveBase) {
+      if (currentActiveBase !== undefined) {
         const activeDiffs = computeDiff(currentActiveBase, currentValue);
         const activeAddedLines: Set<number> = new Set();
         for (const diff of activeDiffs) {
@@ -194,9 +197,39 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
         }
       });
 
-      // テキスト変更時に差分を再計算
-      editor.onDidChangeModelContent(() => {
+      // テキスト変更時に差分を再計算 & 自動採番
+      editor.onDidChangeModelContent((e) => {
         updateDiffDecorations();
+
+        // 自動採番 (# + Space)
+        if (isAutoNumberingRef.current) return;
+
+        // スペース入力のみ検知
+        if (e.changes.length === 1 && e.changes[0].text === ' ') {
+          const position = editor.getPosition();
+          if (!position) return;
+
+          const model = editor.getModel();
+          if (!model) return;
+
+          const lineContent = model.getLineContent(position.lineNumber);
+          // "# " や "## " などの形式か簡易チェック
+          if (!lineContent.trim().startsWith('#')) return;
+
+          const lines = model.getLinesContent();
+          const newText = getAutoNumbering(lines, position.lineNumber - 1);
+
+          if (newText) {
+            isAutoNumberingRef.current = true;
+            // 行全体を置換
+            editor.executeEdits('auto-numbering', [{
+              range: new monaco.Range(position.lineNumber, 1, position.lineNumber, lineContent.length + 1),
+              text: newText,
+              forceMoveMarkers: true
+            }]);
+            isAutoNumberingRef.current = false;
+          }
+        }
       });
 
       // 初回の差分表示
@@ -226,7 +259,9 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
             wordWrap: 'on',
             scrollBeyondLastLine: false,
             automaticLayout: true,
-            glyphMargin: false,
+            glyphMargin: true,
+            padding: { top: 16, bottom: 16 },
+            lineDecorationsWidth: 10,
             readOnly: readOnly ?? false,
           }}
         />

@@ -45,6 +45,15 @@ interface Document {
 ## Implementation Details
 
 - **Scroll Sync**: 行番号ベースの双方向同期。
-  - Monaco: `revealLineInCenter` 使用。
-  - Preview: 各要素に `data-line` を付与し、`scrollIntoView` で同期。
+  - Monaco: `revealLine(line, 0)` で画面上端に表示。
+  - Preview: 各要素に `data-line` を付与し、`scrollTop` 制御で画面上端（offset -40px）に表示。
+  - 同期時にプレビュー側で一時的なハイライト演出を行う。
   - 無限ループ防止のため、外部からのスクロール入力を検知するフラグ（`isScrollingFromExternalRef`）を使用。
+
+- **Editor UX**:
+  - Auto Numbering: `# ` 入力時に見出し番号を自動挿入（タイトル行除外）。
+  - Diff Highlight: 保存済み/未保存の変更を色分け表示。
+
+- **Preview UX**:
+  - Zoom: 10%〜300% の拡大縮小（Ctrl+Wheel / UIボタン）。
+  - Layout: A4用紙スタイル（Noto Sans JP）。

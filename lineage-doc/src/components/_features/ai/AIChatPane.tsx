@@ -3,10 +3,11 @@
 import { Bot, MessageSquare } from 'lucide-react';
 
 interface AIChatPaneProps {
-    // 将来の実装用
+    currentContent: string;
+    onApplyContent: (newContent: string) => void;
 }
 
-export function AIChatPane({ }: AIChatPaneProps) {
+export function AIChatPane({ currentContent, onApplyContent }: AIChatPaneProps) {
     return (
         <div className="h-full flex flex-col bg-slate-50">
             {/* Placeholder for future AI Assistant */}

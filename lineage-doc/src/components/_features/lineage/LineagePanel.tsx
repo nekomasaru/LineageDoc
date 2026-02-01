@@ -56,7 +56,7 @@ export function LineagePanel({
     const isSelectedLatest = selectedEventId === latestEventId;
 
     return (
-        <div className="w-72 bg-slate-50 border-r border-slate-200 flex flex-col shrink-0">
+        <div className="w-full h-full bg-slate-50 border-r border-slate-200 flex flex-col shrink-0">
             {/* Header */}
             <div className="h-12 bg-slate-800 text-white flex items-center px-4 shrink-0">
                 <h2 className="font-semibold text-sm">変更履歴</h2>

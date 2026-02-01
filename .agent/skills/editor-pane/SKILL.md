@@ -26,6 +26,10 @@ meta:
     - 未保存の変更（比較対象：`activeBase`）: 緑色 (`diff-active-line` 等)。
     - 未保存の削除: 黄色/オレンジ (`diff-active-removed-line` 等)。
     - リアルタイム更新: `onDidChangeModelContent` を監視して即時反映。
+  - **Editor UX**:
+    - **自動採番**: `# ` + Space で `markdown-utils` を呼び出し、見出し番号を挿入（タイトル行除外）。
+    - **スクロール同期**: `revealLine(line, 0)` で画面上端に合わせる。
+    - **レイアウト**: `glyphMargin: true` で差分領域確保。
 
 # 実行手順
 

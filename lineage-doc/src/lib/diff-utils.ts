@@ -19,36 +19,34 @@ export function computeDiff(oldText: string, newText: string): DiffResult[] {
     let currentLine = 1;
 
     for (const change of changes) {
-        const lineCount = (change.value.match(/\n/g) || []).length;
-        const hasTrailingNewline = change.value.endsWith('\n');
-        const actualLineCount = hasTrailingNewline ? lineCount : lineCount + 1;
+        // diffライブラリが提供する行数カウントを使用
+        const lineCount = change.count || 0;
 
         if (change.added) {
             results.push({
                 type: 'added',
                 value: change.value,
                 lineStart: currentLine,
-                lineEnd: currentLine + actualLineCount - 1,
+                lineEnd: currentLine + lineCount - 1,
             });
-            currentLine += actualLineCount;
+            currentLine += lineCount;
         } else if (change.removed) {
-            // 削除された行は現在のテキストには存在しないので、
-            // 削除が発生した位置として記録
             results.push({
                 type: 'removed',
                 value: change.value,
                 lineStart: currentLine,
-                lineEnd: currentLine, // 削除はマーカーとして1行で表示
+                lineEnd: currentLine,
             });
-            // currentLine は進めない（削除された行は新テキストにない）
+            // currentLine は進めない
         } else {
+            // unchanged
             results.push({
                 type: 'unchanged',
                 value: change.value,
                 lineStart: currentLine,
-                lineEnd: currentLine + actualLineCount - 1,
+                lineEnd: currentLine + lineCount - 1,
             });
-            currentLine += actualLineCount;
+            currentLine += lineCount;
         }
     }
 
