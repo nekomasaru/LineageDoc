@@ -1,0 +1,236 @@
+'use client';
+
+import Editor, { OnMount, OnChange } from '@monaco-editor/react';
+import { useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
+import type * as Monaco from 'monaco-editor';
+import { computeDiff } from '@/lib/diff-utils';
+
+interface MonacoWrapperProps {
+  value: string;
+  onChange: (value: string) => void;
+  onVisibleLineChange?: (line: number) => void;
+  onSave?: () => void;
+  targetLine?: number;
+  compareWith?: string; // 保存済みの比較対象 (vN-1)
+  activeBase?: string;   // 未保存の比較対象 (vN)
+  readOnly?: boolean;
+}
+
+export interface MonacoWrapperHandle {
+  scrollToLine: (line: number) => void;
+  clearDecorations: () => void;
+  setValue: (value: string) => void;
+  hasFocus: () => boolean;
+}
+
+export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>(
+  function MonacoWrapper({ value, onChange, onVisibleLineChange, onSave, targetLine, compareWith, activeBase, readOnly }, ref) {
+    const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+    const monacoRef = useRef<typeof Monaco | null>(null);
+    const decorationsRef = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null);
+    const isScrollingFromExternalRef = useRef(false);
+    const isSettingValueRef = useRef(false);
+    const lastValueRef = useRef(value);
+
+    // プロップをrefに保持（イベントハンドラ内で最新値を参照するため）
+    const compareWithRef = useRef(compareWith);
+    const activeBaseRef = useRef(activeBase);
+    useEffect(() => { compareWithRef.current = compareWith; }, [compareWith]);
+    useEffect(() => { activeBaseRef.current = activeBase; }, [activeBase]);
+
+    const scrollToLine = useCallback((line: number) => {
+      if (!editorRef.current) return;
+      isScrollingFromExternalRef.current = true;
+      editorRef.current.revealLine(line, 0);
+      setTimeout(() => { isScrollingFromExternalRef.current = false; }, 100);
+    }, []);
+
+    const clearDecorations = useCallback(() => {
+      if (decorationsRef.current) {
+        decorationsRef.current.clear();
+      }
+    }, []);
+
+    const setEditorValue = useCallback((newValue: string) => {
+      if (!editorRef.current) return;
+      isSettingValueRef.current = true;
+      const position = editorRef.current.getPosition();
+      const scrollTop = editorRef.current.getScrollTop();
+      editorRef.current.setValue(newValue);
+      lastValueRef.current = newValue;
+      if (position) editorRef.current.setPosition(position);
+      editorRef.current.setScrollTop(scrollTop);
+      setTimeout(() => { isSettingValueRef.current = false; }, 50);
+    }, []);
+
+    const hasFocus = useCallback(() => {
+      return editorRef.current?.hasTextFocus() ?? false;
+    }, []);
+
+    useImperativeHandle(ref, () => ({ scrollToLine, clearDecorations, setValue: setEditorValue, hasFocus }));
+
+    useEffect(() => {
+      if (!editorRef.current) return;
+      if (editorRef.current.hasTextFocus()) return;
+      if (value !== lastValueRef.current) setEditorValue(value);
+    }, [value, setEditorValue]);
+
+    useEffect(() => {
+      if (targetLine !== undefined && editorRef.current) {
+        if (editorRef.current.hasTextFocus()) return;
+        scrollToLine(targetLine);
+      }
+    }, [targetLine, scrollToLine]);
+
+    // 差分ハイライトを計算・適用する関数
+    const updateDiffDecorations = useCallback(() => {
+      if (!editorRef.current || !monacoRef.current) return;
+
+      const editor = editorRef.current;
+      const monaco = monacoRef.current;
+      const currentCompareWith = compareWithRef.current;
+      const currentActiveBase = activeBaseRef.current;
+
+      if (!currentCompareWith && !currentActiveBase) {
+        if (decorationsRef.current) decorationsRef.current.clear();
+        return;
+      }
+
+      const currentValue = editor.getValue();
+      const model = editor.getModel();
+      if (!model) return;
+
+      const newDecorations: Monaco.editor.IModelDeltaDecoration[] = [];
+      const addedLineRanges: Set<number> = new Set();
+
+      // 1. 保存済み差分 (compareWith vs currentValue) - 青色
+      if (currentCompareWith) {
+        const baseDiffs = computeDiff(currentCompareWith, currentValue);
+        const baseAddedLines: Set<number> = new Set();
+        for (const diff of baseDiffs) {
+          if (diff.type === 'added') {
+            for (let l = diff.lineStart; l <= diff.lineEnd; l++) baseAddedLines.add(l);
+          }
+        }
+        baseAddedLines.forEach(l => addedLineRanges.add(l));
+
+        for (const diff of baseDiffs) {
+          if (diff.type === 'added') {
+            newDecorations.push({
+              range: new monaco.Range(diff.lineStart, 1, diff.lineEnd, 1),
+              options: { isWholeLine: true, className: 'diff-added-line', linesDecorationsClassName: 'diff-added-line-margin' },
+            });
+          } else if (diff.type === 'removed') {
+            const safeLine = Math.min(diff.lineStart, model.getLineCount());
+            if (safeLine >= 1 && !baseAddedLines.has(safeLine)) {
+              newDecorations.push({
+                range: new monaco.Range(safeLine, 1, safeLine, 1),
+                options: { isWholeLine: true, className: 'diff-removed-line', linesDecorationsClassName: 'diff-removed-line-margin' },
+              });
+            }
+          }
+        }
+      }
+
+      // 2. 未保存差分 (activeBase vs currentValue) - 緑色/黄色
+      if (currentActiveBase) {
+        const activeDiffs = computeDiff(currentActiveBase, currentValue);
+        const activeAddedLines: Set<number> = new Set();
+        for (const diff of activeDiffs) {
+          if (diff.type === 'added') {
+            for (let l = diff.lineStart; l <= diff.lineEnd; l++) activeAddedLines.add(l);
+          }
+        }
+
+        for (const diff of activeDiffs) {
+          if (diff.type === 'added') {
+            newDecorations.push({
+              range: new monaco.Range(diff.lineStart, 1, diff.lineEnd, 1),
+              options: { isWholeLine: true, className: 'diff-active-line', linesDecorationsClassName: 'diff-active-line-margin' },
+            });
+          } else if (diff.type === 'removed') {
+            const safeLine = Math.min(diff.lineStart, model.getLineCount());
+            if (safeLine >= 1 && !activeAddedLines.has(safeLine) && !addedLineRanges.has(safeLine)) {
+              newDecorations.push({
+                range: new monaco.Range(safeLine, 1, safeLine, 1),
+                options: { isWholeLine: true, className: 'diff-active-removed-line', linesDecorationsClassName: 'diff-active-removed-line-margin' },
+              });
+            }
+          }
+        }
+      }
+
+      if (decorationsRef.current) decorationsRef.current.clear();
+      decorationsRef.current = editor.createDecorationsCollection(newDecorations);
+    }, []); // 依存なし - refを使用するため
+
+    // プロップ変更時に差分を更新
+    useEffect(() => {
+      updateDiffDecorations();
+    }, [compareWith, activeBase, updateDiffDecorations]);
+
+    const onSaveRef = useRef(onSave);
+    useEffect(() => { onSaveRef.current = onSave; }, [onSave]);
+
+    const handleEditorMount: OnMount = useCallback((editor, monaco) => {
+      editorRef.current = editor;
+      monacoRef.current = monaco;
+      lastValueRef.current = value;
+
+      editor.addAction({
+        id: 'save-document',
+        label: 'Save Document',
+        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
+        run: () => { if (onSaveRef.current) onSaveRef.current(); },
+      });
+
+      editor.onDidScrollChange(() => {
+        if (isScrollingFromExternalRef.current) return;
+        if (onVisibleLineChange) {
+          const visibleRanges = editor.getVisibleRanges();
+          if (visibleRanges.length > 0) {
+            onVisibleLineChange(visibleRanges[0].startLineNumber);
+          }
+        }
+      });
+
+      // テキスト変更時に差分を再計算
+      editor.onDidChangeModelContent(() => {
+        updateDiffDecorations();
+      });
+
+      // 初回の差分表示
+      updateDiffDecorations();
+    }, [onVisibleLineChange, value, updateDiffDecorations]);
+
+    const handleChange: OnChange = useCallback((val) => {
+      if (isSettingValueRef.current) return;
+      lastValueRef.current = val ?? '';
+      onChange(val ?? '');
+    }, [onChange]);
+
+    return (
+      <div className="h-full w-full">
+        <Editor
+          height="100%"
+          defaultLanguage="markdown"
+          theme="vs-light"
+          defaultValue={value}
+          onChange={handleChange}
+          onMount={handleEditorMount}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 14,
+            fontFamily: 'Consolas, Monaco, monospace',
+            lineNumbers: 'on',
+            wordWrap: 'on',
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            glyphMargin: false,
+            readOnly: readOnly ?? false,
+          }}
+        />
+      </div>
+    );
+  }
+);
