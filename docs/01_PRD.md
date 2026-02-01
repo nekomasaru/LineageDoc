@@ -1,8 +1,8 @@
-# LineageDoc PRD
+# LineaDoc PRD: AI-Powered Document Lineage
 
-## Product Concept
+## 概要
 
-**LineageDoc**: 文書作成の「プロセス」と「変更履歴」を可視化するエディタ。
+**LineaDoc**: **AI-Powered Document Lineage** — 文書作成の「プロセス」と「変更履歴」を可視化するエディタ。
 
 ## User Value
 

@@ -1,5 +1,6 @@
 import React, { useCallback, useRef } from 'react';
-import { FilePlus, Upload, FileText } from 'lucide-react';
+import { FileText, Plus, Upload, BookOpen } from 'lucide-react';
+import { Logo } from '@/components/_shared/Logo';
 
 interface WelcomeScreenProps {
     onCreateNew: () => void;
@@ -31,13 +32,13 @@ export function WelcomeScreen({ onCreateNew, onImportFile }: WelcomeScreenProps)
             <div className="max-w-2xl w-full text-center space-y-12">
 
                 {/* Branding */}
-                <div className="space-y-4">
-                    <div className="inline-flex items-center justify-center p-4 bg-white rounded-2xl shadow-sm border border-slate-200 mb-4">
-                        <FileText size={48} className="text-blue-600" />
+                <div className="mb-10 flex flex-col items-center">
+                    <div className="mb-6">
+                        <Logo size={120} />
                     </div>
-                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">LineageDoc</h1>
-                    <p className="text-slate-500 text-lg max-w-md mx-auto">
-                        変更履歴をすべて記録する、進化するMarkdownエディタ。
+                    <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mb-2">LineaDoc</h1>
+                    <p className="text-slate-500 text-xl font-medium tracking-wide">
+                        AI-Powered Document Lineage
                     </p>
                 </div>
 
@@ -49,7 +50,7 @@ export function WelcomeScreen({ onCreateNew, onImportFile }: WelcomeScreenProps)
                         className="group flex flex-col items-center p-8 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 hover:-translate-y-1 transition-all duration-200"
                     >
                         <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200">
-                            <FilePlus size={32} />
+                            <Plus size={32} />
                         </div>
                         <h3 className="text-lg font-semibold text-slate-900 mb-2">新規作成</h3>
                         <p className="text-sm text-slate-500">

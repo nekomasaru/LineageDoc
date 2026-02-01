@@ -9,8 +9,8 @@ const notoSansJP = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: "LineageDoc - 文書エディタ",
-  description: "AI付き履歴の監査ログ付きMarkdownエディタ",
+  title: "LineaDoc - 文書エディタ",
+  description: "AI-Powered Document Lineage - 文書変更履歴の可視化とAI支援",
 };
 
 export default function RootLayout({

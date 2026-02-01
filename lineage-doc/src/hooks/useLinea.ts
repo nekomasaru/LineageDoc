@@ -1,62 +1,58 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { LineageEvent } from '@/lib/types';
+import { LineaEvent } from '../lib/types';
 
-const STORAGE_KEY = 'lineage-doc-history';
+const STORAGE_KEY = 'linea-doc-history';
 
 function generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 }
 
-export function useLineage() {
-    const [events, setEvents] = useState<LineageEvent[]>([]);
+export function useLinea() {
+    const [events, setEvents] = useState<LineaEvent[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
 
-    // 初回マウント時にローカルストレージから読み込み
+    // Initial load from localStorage
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
             try {
-                const parsed = JSON.parse(stored) as LineageEvent[];
-                // バージョン番号がない古いデータをマイグレーション
-                const migrated = parsed.map((e, i, arr) => ({
-                    ...e,
-                    version: e.version ?? i + 1,
-                    parentId: e.parentId !== undefined ? e.parentId : (i > 0 ? arr[i - 1].id : null),
-                }));
-                setEvents(migrated);
-                console.log('[Lineage] Loaded history:', migrated.length, 'events');
+                const parsed = JSON.parse(stored) as LineaEvent[];
+                setEvents(parsed);
+                console.log('[Linea] Loaded history:', parsed.length, 'events');
             } catch (e) {
-                console.error('Failed to parse lineage history:', e);
+                console.error('Failed to parse linea history:', e);
             }
         }
         setIsLoaded(true);
     }, []);
 
-    // イベントが変更されたらローカルストレージに保存
+    // Save to localStorage whenever events change
     useEffect(() => {
         if (typeof window === 'undefined' || !isLoaded) return;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
     }, [events, isLoaded]);
 
     const addEvent = useCallback((
-        type: LineageEvent['type'],
         content: string,
-        parentId: string | null,
+        type: LineaEvent['type'] = 'user_edit',
+        parentId: string | null = null,
         summary?: string
     ) => {
-        const newVersion = events.length + 1; // Note: 分岐するとバージョン番号の概念が難しくなるが、一旦通し番号
-        const newEvent: LineageEvent = {
+        const latest = events.length > 0 ? events[events.length - 1] : null;
+        const nextVersion = (latest?.version ?? 0) + 1;
+
+        const newEvent: LineaEvent = {
             id: generateId(),
             parentId,
             timestamp: new Date().toISOString(),
             type,
             content,
             summary,
-            version: newVersion,
+            version: nextVersion,
         };
 
         setEvents((prev) => [...prev, newEvent]);
@@ -70,16 +66,16 @@ export function useLineage() {
         }
     }, []);
 
-    // 履歴をリセットし、指定されたコンテンツで初期化する（v1を作成）
+    // Reset history and initialize with given content (v1)
     const resetWithContent = useCallback((content: string, summary: string = '履歴のリセット') => {
-        const newEvent: LineageEvent = {
+        const newEvent: LineaEvent = {
             id: generateId(),
             parentId: null,
             timestamp: new Date().toISOString(),
             type: 'user_edit',
             content,
             summary,
-            version: 1, // 確実にv1にする
+            version: 1,
         };
 
         setEvents([newEvent]);
@@ -93,35 +89,36 @@ export function useLineage() {
         return events.find((e) => e.id === id);
     }, [events]);
 
-    // 最新のイベントを取得
     const getLatestEvent = useCallback(() => {
         if (events.length === 0) return undefined;
         return events[events.length - 1];
     }, [events]);
 
-    // 最初のイベントを取得
     const getInitialEvent = useCallback(() => {
         if (events.length === 0) return undefined;
         return events[0];
     }, [events]);
 
-    // 指定IDのイベントの親イベントを取得
     const getPreviousEvent = useCallback((id: string) => {
         const current = events.find((e) => e.id === id);
         if (!current || !current.parentId) return undefined;
         return events.find((e) => e.id === current.parentId);
     }, [events]);
 
-    // 1つ前のコンテンツを取得（最新に対して）
     const getPreviousContent = useCallback(() => {
         const latest = getLatestEvent();
         return latest?.content;
     }, [getLatestEvent]);
 
-    // バージョン番号からイベントを取得
     const getEventByVersion = useCallback((version: number) => {
         return events.find((e) => e.version === version);
     }, [events]);
+
+    const updateEventSummary = useCallback((eventId: string, newSummary: string) => {
+        setEvents(prev => prev.map(e =>
+            e.id === eventId ? { ...e, summary: newSummary } : e
+        ));
+    }, []);
 
     return {
         events,
@@ -135,5 +132,6 @@ export function useLineage() {
         getPreviousEvent,
         getPreviousContent,
         getEventByVersion,
+        updateEventSummary,
     };
 }

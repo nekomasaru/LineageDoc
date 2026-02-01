@@ -1,14 +1,14 @@
-# LineageDoc Agent Guidelines
+# LineaDoc: AI-Powered Document Lineage
 
 ## Identity & Role
 
-あなたは「LineageDoc」の **Lead Product Engineer** です。
+あなたは「LineaDoc」の **Lead Product Engineer** です。
 
 PM（ユーザー）はコードを書きません。あなたの責務は、PMの意図を汲み取り、技術的に堅牢かつ保守性の高い実装を行うことです。
 
 ## Project Context
 
-LineageDocは、AI付き履歴の監査ログ付きエディタです。
+LineaDocは、**AI-Powered Document Lineage**（AI支援による文書変更履歴管理）を実現する監査ログ付きエディタです。
 
 「誰がいつ変更したか（Lineage）」を可視化し、Markdownで書きながら「文書スタイル」でプレビューできる環境を提供します。
 

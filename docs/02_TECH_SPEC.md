@@ -1,69 +1,119 @@
-# LineageDoc Technical Specification
+# LineaDoc: AI-Powered Document Lineage - Technical Specification
 
 ## Tech Stack
 
-- Frontend: Next.js 16.1.6 (App Router)
-- Language: TypeScript 5
-- Styling: Tailwind CSS 4
-- Package Manager: npm
-- Key Libraries:
-  - `@monaco-editor/react`: ^4.7.0
-  - `react-markdown`: ^10.1.0
-  - `remark-gfm`: ^4.0.1
+- **Frontend**: Next.js 16.1.6 (App Router)
+- **Language**: TypeScript 5
+- **Styling**: Tailwind CSS 4
+- **Editor**: `@monaco-editor/react` ^4.7.0
+- **Markdown**: `react-markdown` ^10.1.0, `remark-gfm` ^4.0.1
+- **Icons**: `lucide-react`
 
 ## Directory Structure (Current)
 
 ```
-/lineage-doc
+/linea-doc
   /src
     /app
-      page.tsx        # メインレイアウト & 相互スクロール同期
-      layout.tsx      # Noto Sans JP フォント設定
-      globals.css     # CSS変数 & Typography (prose) スタイル
+      page.tsx        # Main application controller (State routing, Layout)
+      layout.tsx      # Global layout & Font configuration (Noto Sans JP)
+      globals.css     # Global styles & Tailwind directives
     /components
       /_features
         /editor
-          MonacoWrapper.tsx  # Monaco制御
+          MonacoWrapper.tsx  # Editor component with custom scroll handling
         /preview
-          PreviewPane.tsx   # Markdownレンダリング & data-line付与
+          PreviewPane.tsx    # Markdown preview with A4 paper style
+        /lineage
+          LineagePanel.tsx   # History visualization (SVG Graph + List)
+        /welcome
+          WelcomeScreen.tsx  # Initial launch screen
+      /_shared
+        AlertDialog.tsx      # Generic alert dialog
+        BranchCommentModal.tsx # Branch creation modal
+        InputModal.tsx       # Generic input modal (e.g., Comment edit)
+        ConfirmModal.tsx     # Generic confirmation modal (e.g., Reset)
+    /hooks
+      useLineage.ts          # History management logic & Persistence
+    /lib
+      types.ts               # Shared type definitions
+      lineage-utils.ts       # Graph layout algorithms
 ```
 
-## Data Models (MVP)
+## Data Models
 
-### Document
+### Linea Event (History Node)
+The core data structure representing a snapshot in the document history.
 
 ```typescript
-interface Document {
-  id: string;        // UUID
-  title: string;
-  rawContent: string; // Markdown text
-  createdAt: string; // ISO8601
-  updatedAt: string; // ISO8601
+interface LineaEvent {
+  id: string;              // UUID v4
+  parentId: string | null; // Parent event ID (forms a DAG)
+  timestamp: string;       // ISO8601
+  type: 'user_edit' | 'ai_suggestion' | 'save';
+  content: string;         // Full document content
+  summary?: string;        // Change summary / Branch comment
+  version?: number;        // Sequential version number (v1, v2...)
+}
+```
+
+### Visualization Models
+Structures used for rendering the history graph.
+
+```typescript
+interface LayoutNode {
+  event: LineaEvent;
+  column: number;          // Horizontal position (branch index)
+  yIndex: number;          // Vertical position (chronological order)
 }
 
-interface LineageEvent {
-  id: string;
-  parentId: string | null; // 親ノードID（DAG構造）
-  timestamp: string;
-  type: 'user_edit' | 'ai_suggestion' | 'save';
-  content: string;
-  summary?: string;
-  version?: number;
+interface LayoutLink {
+  sourceId: string;
+  targetId: string;
+  sourceColumn: number;
+  targetColumn: number;
+  sourceY: number;
+  targetY: number;
 }
 ```
 
 ## Implementation Details
 
-- **Scroll Sync**: 行番号ベースの双方向同期。
-  - Monaco: `revealLine(line, 0)` で画面上端に表示。
-  - Preview: 各要素に `data-line` を付与し、`scrollTop` 制御で画面上端（offset -40px）に表示。
-  - 同期時にプレビュー側で一時的なハイライト演出を行う。
-  - 無限ループ防止のため、外部からのスクロール入力を検知するフラグ（`isScrollingFromExternalRef`）を使用。
+### 1. Linea Visualization System
+A hybrid rendering approach combining SVG for the graph connections and HTML for interactive elements.
 
-- **Editor UX**:
-  - Auto Numbering: `# ` 入力時に見出し番号を自動挿入（タイトル行除外）。
-  - Diff Highlight: 保存済み/未保存の変更を色分け表示。
+- **Layout Algorithm**: Chronological Root-to-Leaf.
+  - Nodes are sorted by timestamp (newest top).
+  - Main lineage path stays in Column 0.
+  - Branches are assigned new columns to avoid overlapping.
+- **Layering Architecture** (z-index):
+  - `z-10`: **SVG Layer** (Background) - Draws connection lines and node circles. `pointer-events-none`.
+  - `z-20`: **List Layer** (Foreground) - The scrollable list of history items alongside the graph.
+  - `z-30`: **Comment Overlay** (Interaction) - Clickable comment labels positioned over the graph. Container is `pointer-events-none` but children are `pointer-events-auto`.
 
-- **Preview UX**:
-  - Zoom: 10%〜300% の拡大縮小（Ctrl+Wheel / UIボタン）。
-  - Layout: A4用紙スタイル（Noto Sans JP）。
+### 2. Interaction & Modals
+Browser native dialogs (`alert`, `confirm`, `prompt`) are replaced with custom React modals for better UX.
+
+- **InputModal**: Used for editing comments.
+- **ConfirmModal**: Used for destructive actions (e.g., History Reset).
+- **BranchCommentModal**: Specialized modal for creating new branches.
+
+### 3. Editor & Preview Synchronization
+Bi-directional scroll synchronization ensures the editor and preview pane stay aligned.
+
+- **Editor -> Preview**:
+  - Monaco `onScroll` triggers calculation of line number at top of viewport.
+  - Preview scrolls to element matching `data-line="{lineNumber}"`.
+- **Preview -> Editor**:
+  - Preview `onScroll` calculates current visible line.
+  - Monaco `revealLine` updates editor viewport.
+- **Loop Prevention**: Uses `isScrollingFromExternal` ref flag to break infinite scroll loops.
+
+### 4. Data Persistence
+- **Storage**: `localStorage` (Key: `lineage-doc-storage`).
+- **Logic**: Encapsulated in `useLineage` hook.
+- **Resilience**: Automatically initializes with a default event if storage is empty.
+
+### 5. Future AI Integration (Planned)
+- **Supabase**: Cloud persistence and vector store for knowledge base.
+- **Vertex AI**: Intelligent suggestions and automated summarization.

@@ -4,18 +4,20 @@ import { useMemo } from 'react';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { User, Bot, Save, Trash2, Copy, GitBranch, Edit2 } from 'lucide-react';
-import { LineageEvent } from '@/lib/types';
-import { calculateGraphLayout } from '@/lib/lineage-utils';
+import { LineaEvent } from '@/lib/types';
+import { calculateGraphLayout } from '@/lib/linea-utils';
 
-interface LineagePanelProps {
-    events: LineageEvent[];
-    selectedEventId?: string;
-    isBranching?: boolean;
-    onSelectEvent: (event: LineageEvent) => void;
+interface LineaPanelProps {
+    events: LineaEvent[];
+    selectedEventId: string | undefined;
+    isBranching: boolean;
+    treeScale?: number; // Ctrl+Wheel zoom scale for tree
+    onSelectEvent: (event: LineaEvent) => void;
     onClearHistory: () => void;
-    onMakeLatest?: (event: LineageEvent) => void;
-    onStartBranch?: (event: LineageEvent) => void;
-    onCancelBranch?: () => void;
+    onMakeLatest: (event: LineaEvent) => void;
+    onStartBranch: (event: LineaEvent) => void;
+    onCancelBranch: () => void;
+    onEditComment: (event: LineaEvent) => void; // コメント編集コールバック
 }
 
 const eventConfig: Record<string, any> = {
@@ -47,16 +49,18 @@ const COL_WIDTH = 32; // px (24 -> 32に拡張して干渉を低減)
 const LEFT_MARGIN = 20; // px
 const CIRCLE_RADIUS = 10; // (5 -> 10に拡大して文字を入れやすくする)
 
-export function LineagePanel({
+export function LineaPanel({
     events,
     selectedEventId,
     isBranching,
+    treeScale = 1,
     onSelectEvent,
     onClearHistory,
     onMakeLatest,
     onStartBranch,
     onCancelBranch,
-}: LineagePanelProps) {
+    onEditComment,
+}: LineaPanelProps) {
     // グラフレイアウト計算
     const { nodes, links, maxColumn } = useMemo(() => calculateGraphLayout(events), [events]);
 
@@ -88,13 +92,16 @@ export function LineagePanel({
             </div>
 
             {/* Content Area (SVG + List) */}
-            <div className="flex-1 overflow-auto relative">
+            <div id="lineage-tree-container" className="flex-1 overflow-auto relative">
                 {nodes.length === 0 ? (
                     <div className="text-center text-slate-500 py-8">
                         <p className="text-sm">履歴がありません</p>
                     </div>
                 ) : (
-                    <div className="relative min-h-full">
+                    <div
+                        className="relative min-h-full"
+                        style={{ transform: `scale(${treeScale})`, transformOrigin: 'top left' }}
+                    >
                         {/* SVG Layer (Background) */}
                         <svg
                             className="absolute top-0 left-0 pointer-events-none z-10"
@@ -160,6 +167,35 @@ export function LineagePanel({
                             })}
                         </svg>
 
+                        {/* Comment Labels Layer (Clickable HTML overlay - z-30 to be above List Layer) */}
+                        <div className="absolute top-0 left-0 z-30 pointer-events-none" style={{ width: graphWidth, height: totalHeight }}>
+                            {nodes.map((node) => {
+                                if (!node.event.summary) return null;
+                                const cx = LEFT_MARGIN + node.column * COL_WIDTH;
+                                const cy = node.yIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+                                const displayText = node.event.summary.length > 12
+                                    ? node.event.summary.slice(0, 12) + '…'
+                                    : node.event.summary;
+                                return (
+                                    <div
+                                        key={`comment-${node.event.id}`}
+                                        className="absolute text-[8px] font-medium text-amber-500 cursor-pointer hover:text-amber-600 hover:underline whitespace-nowrap pointer-events-auto"
+                                        style={{
+                                            left: cx - CIRCLE_RADIUS,
+                                            top: cy + CIRCLE_RADIUS + 6,
+                                        }}
+                                        title={node.event.summary}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onEditComment?.(node.event);
+                                        }}
+                                    >
+                                        {displayText}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
                         {/* List Layer (Foreground) */}
                         <div className="relative z-20">
                             {nodes.map((node) => {
@@ -195,13 +231,9 @@ export function LineagePanel({
                                                 )}
                                             </div>
                                             <div className="text-[10px] text-slate-400 mb-0.5">
-                                                {format(new Date(event.timestamp), 'MM/dd HH:mm', { locale: ja })}
+                                                {format(new Date(event.timestamp), 'yyyy/MM/dd HH:mm:ss', { locale: ja })}
                                             </div>
-                                            {event.summary && (
-                                                <div className="text-xs text-slate-600 truncate" title={event.summary}>
-                                                    {event.summary}
-                                                </div>
-                                            )}
+
                                         </div>
                                     </div>
                                 );

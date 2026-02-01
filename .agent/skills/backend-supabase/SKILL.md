@@ -10,7 +10,7 @@ meta:
 
 # このスキルでやること
 
-LineageDocに必要なデータベース構造を定義し、それを構築するためのSQLを作成する。
+**LineaDoc: AI-Powered Document Lineage** に必要なデータベース構造を定義し、それを構築するためのSQLを作成する。
 
 # 実行手順
 

@@ -1,6 +1,6 @@
 ---
 name: ai-llm-engineering
-description: Vertex AI (Gemini) との接続、プロンプト設計、ストリーミング実装。
+description: Vertex AI (Gemini) との接続、プロンプト設計、ストリーミング実装。LineaDoc: AI-Powered Document Lineage の中核となるAI機能。
 allowed-tools: [file_edit]
 meta:
   domain: backend

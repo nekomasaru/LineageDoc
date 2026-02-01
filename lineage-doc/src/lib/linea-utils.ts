@@ -1,3 +1,5 @@
+import { LineaEvent, LayoutNode, LayoutLink } from './types';
+
 /**
  * リネージイベントからグラフ描画用のレイアウト情報を計算する
  * 
@@ -7,7 +9,7 @@
  * 3. これにより、メインパス (v1-v2-v3...) が常に Column 0 に固定され、
  *    分岐が新しい列で成長しても既存のカラムがジャンプすることがなくなる。
  */
-export function calculateGraphLayout(events: LineageEvent[]): { nodes: LayoutNode[], links: LayoutLink[], maxColumn: number } {
+export function calculateGraphLayout(events: LineaEvent[]): { nodes: LayoutNode[], links: LayoutLink[], maxColumn: number } {
     if (events.length === 0) return { nodes: [], links: [], maxColumn: 0 };
 
     // 1. ノードを新しい順（降順）に並べる -> Y軸の表示順序（上ほど最新）

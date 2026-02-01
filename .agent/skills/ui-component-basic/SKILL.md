@@ -1,47 +1,72 @@
 ---
 name: ui-component-basic
-description: 基本的なUIコンポーネント（ボタン、カード、レイアウト）の実装・修正。
+description: 基本的なUIコンポーネント（モーダル、ボタン、共通パーツ）の実装・運用ルール。
 allowed-tools: [file_edit]
 meta:
   domain: frontend
   role: ui-foundation
-  tech_stack: tailwind-shadcn
+  tech_stack: tailwind-custom-components
 ---
 
 # このスキルでやること
 
-Pure Tailwind CSS または shadcn/ui を用いて、LineageDocのUIパーツを作成する。
+**LineaDoc: AI-Powered Document Lineage** のUI一貫性を保つためのコンポーネント作成と使用ガイドライン。
 
-# 実行手順
+# UI原則
 
-1. **要件判断**:
-   - 複雑なインタラクション（モーダル、ポップオーバー等）が必要 → `shadcn/ui` のコードを生成する。
-   - 単純な装飾のみ → HTML要素に直接 Tailwind クラスを付与する。
+1. **No Browser Native Dialogs**:
+   - `alert()`, `confirm()`, `prompt()` は使用禁止。
+   - 必ず `src/components/_shared/` 内のモーダルコンポーネントを使用する。
 
-2. **スタイリングルール**:
-   - 色: `slate-900` (文字), `slate-50` (背景), `blue-700` (アクション) を基本とする。
-   - 余白: 4の倍数 (`p-4`, `m-8`) を厳守する。
-   - アイコン: 必ず `lucide-react` を使用する。
+2. **Tailwind CSS Utility First**:
+   - `globals.css` への独自クラス追加は最小限にする。
+   - コンポーネント内でTailwindクラスを完結させる。
 
-# 具体例
+3. **Color Palette**:
+   - Primary: Blue (`bg-blue-600`, `text-blue-600`)
+   - Accent/Warning: Amber (`text-amber-500`)
+   - Danger: Red (`text-red-500`)
+   - Text: Slate (`text-slate-800` for headings, `text-slate-600` for body)
 
-## OK: Tailwind Button
+# 共通コンポーネント (src/components/_shared/)
 
+新しい機能を追加する際は、既存の共通コンポーネントを優先して使用する。
+
+## 1. InputModal (入力モーダル)
+ユーザーからのテキスト入力を受け付ける場合に使用。
 ```tsx
-<button className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 transition-colors">
-  送信
-</button>
+<InputModal
+  isOpen={isOpen}
+  onClose={close}
+  onConfirm={(val) => handle(val)}
+  title="タイトル"
+  label="ラベル"
+  defaultValue="初期値"
+  confirmText="保存"
+/>
 ```
 
-## OK: Shadcn Button
-
+## 2. ConfirmModal (確認モーダル)
+削除やリセットなどの破壊的アクションの確認に使用。
 ```tsx
-import { Button } from "@/components/ui/button"
-
-<Button variant="outline">キャンセル</Button>
+<ConfirmModal
+  isOpen={isOpen}
+  onClose={close}
+  onConfirm={performAction}
+  title="確認"
+  message="本当に実行しますか？"
+  variant="danger" // 'danger' | 'warning' | 'info'
+/>
 ```
 
-# 禁止事項
+## 3. Generic Modals
+- `AlertDialog`: シンプルな通知用。
+- `BranchCommentModal`: 分岐作成専用（特殊ロジック含む）。
 
-- `style={{ ... }}` タグでのインラインスタイル記述（動的な値を除く）。
-- `globals.css` への独自クラス追加（Utility Firstを徹底する）。
+# 実装パターン
+
+- **アイコン**: `lucide-react` を使用。
+- **Z-Index**:
+  - モーダル: `z-50`
+  - オーバーレイ: `z-40` (backdrop)
+  - ツールチップ/ポップオーバー: `z-50`以上

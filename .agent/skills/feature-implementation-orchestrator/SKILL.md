@@ -2,7 +2,7 @@
 name: feature-implementation-orchestrator
 description: >
   【司令塔】ユーザーの要望を分析し、UI・エディタ・DB・AIの各専門スキルを組み合わせて実装計画を立てるメタスキル。
-  開発プロセスの最初に必ず呼び出される。
+  LineaDoc: AI-Powered Document Lineage の開発プロセスを主導する。
 allowed-tools:
   - file_read
 meta:

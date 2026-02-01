@@ -17,7 +17,7 @@ export function GuideModal({ isOpen, onClose }: GuideModalProps) {
                 <div className="flex items-center justify-between p-4 border-b border-slate-200">
                     <div className="flex items-center gap-2 text-slate-700">
                         <BookOpen size={20} />
-                        <h2 className="text-lg font-semibold">LineageDoc の使い方</h2>
+                        <h2 className="text-lg font-semibold">LineaDoc の使い方</h2>
                     </div>
                     <button
                         onClick={onClose}

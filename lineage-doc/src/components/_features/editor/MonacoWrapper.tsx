@@ -11,10 +11,12 @@ interface MonacoWrapperProps {
   onChange: (value: string) => void;
   onVisibleLineChange?: (line: number) => void;
   onSave?: () => void;
+  onZoom?: (delta: number) => void; // Ctrl+Wheel zoom callback
   targetLine?: number;
   compareWith?: string; // 保存済みの比較対象 (vN-1)
   activeBase?: string;   // 未保存の比較対象 (vN)
   readOnly?: boolean;
+  fontSize?: number; // エディタのフォントサイズ (px)
 }
 
 export interface MonacoWrapperHandle {
@@ -26,9 +28,10 @@ export interface MonacoWrapperHandle {
 }
 
 export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>(
-  function MonacoWrapper({ value, onChange, onVisibleLineChange, onSave, targetLine, compareWith, activeBase, readOnly }, ref) {
+  function MonacoWrapper({ value, onChange, onVisibleLineChange, onSave, onZoom, targetLine, compareWith, activeBase, readOnly, fontSize = 14 }, ref) {
     const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
     const monacoRef = useRef<typeof Monaco | null>(null);
+    const wrapperRef = useRef<HTMLDivElement | null>(null);
     const decorationsRef = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null);
     const isScrollingFromExternalRef = useRef(false);
     const isSettingValueRef = useRef(false);
@@ -88,6 +91,13 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
         scrollToLine(targetLine);
       }
     }, [targetLine, scrollToLine]);
+
+    // fontSize プロップが変更された時にエディタのオプションを更新
+    useEffect(() => {
+      if (editorRef.current) {
+        editorRef.current.updateOptions({ fontSize });
+      }
+    }, [fontSize]);
 
     // 差分ハイライトを計算・適用する関数
     const updateDiffDecorations = useCallback(() => {
@@ -247,8 +257,26 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
       onChange(val ?? '');
     }, [onChange]);
 
+    // Ctrl+Wheel zoom handler - use native listener with capture to intercept before Monaco
+    useEffect(() => {
+      const wrapper = wrapperRef.current;
+      if (!wrapper || !onZoom) return;
+
+      const handleWheel = (e: WheelEvent) => {
+        if (e.ctrlKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          const delta = e.deltaY > 0 ? -1 : 1;
+          onZoom(delta);
+        }
+      };
+
+      wrapper.addEventListener('wheel', handleWheel, { capture: true, passive: false });
+      return () => wrapper.removeEventListener('wheel', handleWheel, { capture: true });
+    }, [onZoom]);
+
     return (
-      <div className="h-full w-full">
+      <div ref={wrapperRef} className="h-full w-full">
         <Editor
           height="100%"
           defaultLanguage="markdown"
@@ -258,7 +286,7 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
           onMount={handleEditorMount}
           options={{
             minimap: { enabled: false },
-            fontSize: 14,
+            fontSize: fontSize,
             fontFamily: 'Consolas, Monaco, monospace',
             lineNumbers: 'on',
             wordWrap: 'on',
@@ -268,6 +296,7 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
             padding: { top: 16, bottom: 16 },
             lineDecorationsWidth: 10,
             readOnly: readOnly ?? false,
+            mouseWheelZoom: false, // 独自のCtrl+Wheelハンドラを使うため無効化
           }}
         />
       </div>
