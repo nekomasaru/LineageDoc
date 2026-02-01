@@ -25,6 +25,7 @@ export default function Home() {
   const [rightPaneMode, setRightPaneMode] = useState<RightPaneMode>('preview');
   const [showGuide, setShowGuide] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [isBranching, setIsBranching] = useState(false);
 
   const editorRef = useRef<MonacoWrapperHandle>(null);
   const previewRef = useRef<PreviewPaneHandle>(null);
@@ -66,6 +67,7 @@ export default function Home() {
     setDisplayContent(initialText);
     lastSavedContentRef.current = initialText;
     setIsSaved(true);
+    setIsBranching(false);
   }, [resetWithContent]);
 
   const handleImportFile = useCallback((fileContent: string, filename: string) => {
@@ -74,6 +76,7 @@ export default function Home() {
     setDisplayContent(fileContent);
     lastSavedContentRef.current = fileContent;
     setIsSaved(true);
+    setIsBranching(false);
   }, [resetWithContent]);
 
 
@@ -82,13 +85,23 @@ export default function Home() {
     if (content !== lastSavedContentRef.current) {
       const changes = Math.abs(content.length - lastSavedContentRef.current.length);
       const summary = `${changes}文字の変更を保存`;
-      const newEvent = addEvent('user_edit', content, summary);
+
+      // 親IDの決定: 
+      // 1. 分岐モードなら必ず選択中のイベントを親にする
+      // 2. 最新を見ているなら最新ID (直線)
+      // 3. 過去を見ているならそのID (分岐)
+      const parentId = isBranching && selectedEventId
+        ? selectedEventId
+        : (isViewingLatest ? latestEventId : selectedEventId);
+
+      const newEvent = addEvent('user_edit', content, parentId ?? null, summary);
       lastSavedContentRef.current = content;
       setIsSaved(true);
+      setIsBranching(false);
       setSelectedEventId(newEvent.id);
       setDisplayContent(content);
     }
-  }, [content, addEvent]);
+  }, [content, addEvent, isViewingLatest, latestEventId, selectedEventId]);
 
   // エクスポート機能
   const handleExport = useCallback(() => {
@@ -151,11 +164,11 @@ export default function Home() {
   }, [handleSave]);
 
   const handleContentChange = useCallback((newContent: string) => {
-    if (!isViewingLatest) return;
+    if (!isViewingLatest && !isBranching) return;
     setContent(newContent);
     setDisplayContent(newContent);
     setIsSaved(newContent === lastSavedContentRef.current);
-  }, [isViewingLatest]);
+  }, [isViewingLatest, isBranching]);
 
   const handleEditorVisibleLineChange = useCallback((line: number) => {
     setPreviewTargetLine(line);
@@ -169,6 +182,7 @@ export default function Home() {
 
   const handleSelectEvent = useCallback((event: LineageEvent) => {
     setSelectedEventId(event.id);
+    setIsBranching(false);
     if (event.id === latestEventId) {
       setDisplayContent(content);
     } else {
@@ -177,13 +191,42 @@ export default function Home() {
   }, [latestEventId, content]);
 
   const handleMakeLatest = useCallback((event: LineageEvent) => {
-    const newEvent = addEvent('user_edit', event.content, `v${event.version ?? '?'}を復元`);
+    // 復元は常に現在の最新からの継続として扱う（直線的な履歴追加）
+    const newEvent = addEvent('user_edit', event.content, latestEventId ?? null, `v${event.version ?? '?'}を復元`);
     setContent(event.content);
     setDisplayContent(event.content);
     lastSavedContentRef.current = event.content;
     setIsSaved(true);
+    setIsBranching(false);
     setSelectedEventId(newEvent.id);
-  }, [addEvent]);
+  }, [addEvent, latestEventId]);
+
+  const handleStartBranch = useCallback((event: LineageEvent) => {
+    // 現在選択されている履歴を作業エリアにコピーして分岐モードへ
+    setContent(event.content);
+    setDisplayContent(event.content);
+    lastSavedContentRef.current = event.content;
+    setIsBranching(true);
+    setIsSaved(true);
+    // 編集フォーカスを当てる
+    if (editorRef.current) {
+      editorRef.current.focus?.();
+    }
+  }, []);
+
+  const handleCancelBranch = useCallback(() => {
+    // 分岐モードをキャンセル
+    setIsBranching(false);
+    // 選択中のイベントがあれば、その内容を再表示
+    if (selectedEventId) {
+      const event = getEventById(selectedEventId);
+      if (event) {
+        setDisplayContent(event.content);
+        lastSavedContentRef.current = event.content;
+      }
+    }
+    setIsSaved(true);
+  }, [selectedEventId, getEventById]);
 
   const handleClearHistory = useCallback(() => {
     if (confirm('履歴を全て削除し、現在の内容をv1として保存し直しますか？\n（現在のエディタの内容は維持されます）')) {
@@ -399,13 +442,16 @@ export default function Home() {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden relative">
         {/* Left: History */}
-        <div className="w-72 border-r border-slate-200 bg-white shrink-0 z-10 flex flex-col">
+        <div className="w-96 border-r border-slate-200 bg-white shrink-0 z-10 flex flex-col">
           <LineagePanel
             events={events}
             selectedEventId={selectedEventId}
+            isBranching={isBranching}
             onSelectEvent={handleSelectEvent}
             onClearHistory={handleClearHistory}
             onMakeLatest={handleMakeLatest}
+            onStartBranch={handleStartBranch}
+            onCancelBranch={handleCancelBranch}
           />
         </div>
 
@@ -418,7 +464,7 @@ export default function Home() {
             onVisibleLineChange={handleEditorVisibleLineChange}
             onSave={handleSave}
             targetLine={editorTargetLine}
-            readOnly={!isViewingLatest}
+            readOnly={!isViewingLatest && !isBranching}
             compareWith={compareWith}
             activeBase={activeBase}
           />

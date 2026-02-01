@@ -2,6 +2,7 @@
 
 export interface LineageEvent {
     id: string;
+    parentId: string | null; // 親ノードID（DAG構造）
     timestamp: string;  // ISO8601
     type: 'user_edit' | 'ai_suggestion' | 'save';
     content: string;    // その時点のドキュメント全文

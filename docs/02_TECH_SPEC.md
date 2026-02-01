@@ -40,6 +40,16 @@ interface Document {
   createdAt: string; // ISO8601
   updatedAt: string; // ISO8601
 }
+
+interface LineageEvent {
+  id: string;
+  parentId: string | null; // 親ノードID（DAG構造）
+  timestamp: string;
+  type: 'user_edit' | 'ai_suggestion' | 'save';
+  content: string;
+  summary?: string;
+  version?: number;
+}
 ```
 
 ## Implementation Details

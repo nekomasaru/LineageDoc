@@ -22,9 +22,10 @@ export function useLineage() {
             try {
                 const parsed = JSON.parse(stored) as LineageEvent[];
                 // バージョン番号がない古いデータをマイグレーション
-                const migrated = parsed.map((e, i) => ({
+                const migrated = parsed.map((e, i, arr) => ({
                     ...e,
                     version: e.version ?? i + 1,
+                    parentId: e.parentId !== undefined ? e.parentId : (i > 0 ? arr[i - 1].id : null),
                 }));
                 setEvents(migrated);
                 console.log('[Lineage] Loaded history:', migrated.length, 'events');
@@ -44,11 +45,13 @@ export function useLineage() {
     const addEvent = useCallback((
         type: LineageEvent['type'],
         content: string,
+        parentId: string | null,
         summary?: string
     ) => {
-        const newVersion = events.length + 1;
+        const newVersion = events.length + 1; // Note: 分岐するとバージョン番号の概念が難しくなるが、一旦通し番号
         const newEvent: LineageEvent = {
             id: generateId(),
+            parentId,
             timestamp: new Date().toISOString(),
             type,
             content,
@@ -71,6 +74,7 @@ export function useLineage() {
     const resetWithContent = useCallback((content: string, summary: string = '履歴のリセット') => {
         const newEvent: LineageEvent = {
             id: generateId(),
+            parentId: null,
             timestamp: new Date().toISOString(),
             type: 'user_edit',
             content,
@@ -101,11 +105,11 @@ export function useLineage() {
         return events[0];
     }, [events]);
 
-    // 指定IDのイベントの1つ前のイベントを取得
+    // 指定IDのイベントの親イベントを取得
     const getPreviousEvent = useCallback((id: string) => {
-        const index = events.findIndex((e) => e.id === id);
-        if (index <= 0) return undefined;
-        return events[index - 1];
+        const current = events.find((e) => e.id === id);
+        if (!current || !current.parentId) return undefined;
+        return events.find((e) => e.id === current.parentId);
     }, [events]);
 
     // 1つ前のコンテンツを取得（最新に対して）

@@ -22,6 +22,7 @@ export interface MonacoWrapperHandle {
   clearDecorations: () => void;
   setValue: (value: string) => void;
   hasFocus: () => boolean;
+  focus: () => void;
 }
 
 export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>(
@@ -69,7 +70,11 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
       return editorRef.current?.hasTextFocus() ?? false;
     }, []);
 
-    useImperativeHandle(ref, () => ({ scrollToLine, clearDecorations, setValue: setEditorValue, hasFocus }));
+    const focus = useCallback(() => {
+      editorRef.current?.focus();
+    }, []);
+
+    useImperativeHandle(ref, () => ({ scrollToLine, clearDecorations, setValue: setEditorValue, hasFocus, focus }));
 
     useEffect(() => {
       if (!editorRef.current) return;
