@@ -117,19 +117,19 @@ body {
 
 /* 削除箇所の左端バー */
 .diff-removed-line-margin {
-  background-color: #ef4444 !important;
+  background-color: #f97316 !important;
   width: 5px !important;
   margin-left: 2px;
 }
 
 /* 削除行の背景 */
 .diff-removed-line {
-  background-color: rgba(239, 68, 68, 0.1) !important;
+  background-color: rgba(249, 115, 22, 0.1) !important;
 }
 
 /* 削除マーカー (Glyph Margin) */
 .diff-removed-glyph {
-  background-color: #ef4444 !important;
+  background-color: #f97316 !important;
   width: 100% !important;
   border-radius: 2px;
   cursor: help;

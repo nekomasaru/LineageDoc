@@ -3,38 +3,54 @@
 import { useState, useCallback, useEffect } from 'react';
 import { LineaEvent } from '../lib/types';
 
-const STORAGE_KEY = 'linea-doc-history';
+const STORAGE_BASE_KEY = 'linea-doc-history';
 
 function generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 }
 
-export function useLinea() {
+export function useLinea(documentId?: string | null) {
     const [events, setEvents] = useState<LineaEvent[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
 
+    const storageKey = documentId ? `${STORAGE_BASE_KEY}-${documentId}` : null;
+
     // Initial load from localStorage
     useEffect(() => {
-        if (typeof window === 'undefined') return;
+        if (typeof window === 'undefined' || !storageKey) {
+            setIsLoaded(true);
+            return;
+        }
 
-        const stored = localStorage.getItem(STORAGE_KEY);
+        const stored = localStorage.getItem(storageKey);
         if (stored) {
             try {
                 const parsed = JSON.parse(stored) as LineaEvent[];
                 setEvents(parsed);
-                console.log('[Linea] Loaded history:', parsed.length, 'events');
+                console.log(`[Linea] Loaded history for ${documentId}:`, parsed.length, 'events');
             } catch (e) {
                 console.error('Failed to parse linea history:', e);
+                setEvents([]);
             }
+        } else {
+            setEvents([]);
         }
         setIsLoaded(true);
-    }, []);
+    }, [storageKey, documentId]);
 
     // Save to localStorage whenever events change
     useEffect(() => {
-        if (typeof window === 'undefined' || !isLoaded) return;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
-    }, [events, isLoaded]);
+        if (typeof window === 'undefined' || !isLoaded || !storageKey) return;
+
+        if (events.length > 0) {
+            localStorage.setItem(storageKey, JSON.stringify(events));
+            // 本文も保存用に同期（簡易実装）
+            const latest = events[events.length - 1];
+            if (latest.content && documentId) {
+                localStorage.setItem(`lineadoc-doc-content-${documentId}`, latest.content);
+            }
+        }
+    }, [events, isLoaded, storageKey, documentId]);
 
     const addEvent = useCallback((
         content: string,
@@ -61,10 +77,10 @@ export function useLinea() {
 
     const clearEvents = useCallback(() => {
         setEvents([]);
-        if (typeof window !== 'undefined') {
-            localStorage.removeItem(STORAGE_KEY);
+        if (typeof window !== 'undefined' && storageKey) {
+            localStorage.removeItem(storageKey);
         }
-    }, []);
+    }, [storageKey]);
 
     // Reset history and initialize with given content (v1)
     const resetWithContent = useCallback((content: string, summary: string = '履歴のリセット') => {
@@ -79,11 +95,11 @@ export function useLinea() {
         };
 
         setEvents([newEvent]);
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify([newEvent]));
+        if (typeof window !== 'undefined' && storageKey) {
+            localStorage.setItem(storageKey, JSON.stringify([newEvent]));
         }
         return newEvent;
-    }, []);
+    }, [storageKey]);
 
     const getEventById = useCallback((id: string) => {
         return events.find((e) => e.id === id);

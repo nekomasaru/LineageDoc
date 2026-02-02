@@ -81,7 +81,8 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
 
     useEffect(() => {
       if (!editorRef.current) return;
-      if (editorRef.current.hasTextFocus()) return;
+      // フォーカスチェックを削除: 値が変わった場合はフォーカスの有無に関わらず更新する
+      // ループ防止は lastValueRef との比較で行う
       if (value !== lastValueRef.current) setEditorValue(value);
     }, [value, setEditorValue]);
 
@@ -143,7 +144,7 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
             if (safeLine >= 1 && !baseAddedLines.has(safeLine)) {
               newDecorations.push({
                 range: new monaco.Range(safeLine, 1, safeLine, 1),
-                options: { isWholeLine: true, className: 'diff-removed-line', linesDecorationsClassName: 'diff-removed-line-margin' },
+                options: { isWholeLine: true, className: 'diff-removed-line', linesDecorationsClassName: 'diff-removed-line-margin', glyphMarginClassName: 'diff-removed-glyph' },
               });
             }
           }
@@ -171,7 +172,7 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
             if (safeLine >= 1 && !activeAddedLines.has(safeLine) && !addedLineRanges.has(safeLine)) {
               newDecorations.push({
                 range: new monaco.Range(safeLine, 1, safeLine, 1),
-                options: { isWholeLine: true, className: 'diff-active-removed-line', linesDecorationsClassName: 'diff-active-removed-line-margin' },
+                options: { isWholeLine: true, className: 'diff-active-removed-line', linesDecorationsClassName: 'diff-active-removed-line-margin', glyphMarginClassName: 'diff-removed-glyph' },
               });
             }
           }
@@ -253,9 +254,10 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
 
     const handleChange: OnChange = useCallback((val) => {
       if (isSettingValueRef.current) return;
+      if (readOnly) return;
       lastValueRef.current = val ?? '';
       onChange(val ?? '');
-    }, [onChange]);
+    }, [onChange, readOnly]);
 
     // Ctrl+Wheel zoom handler - use native listener with capture to intercept before Monaco
     useEffect(() => {

@@ -1,0 +1,10 @@
+# 表記ゆれ検出（例）
+extends: substitution
+message: "'%s' は '%s' に統一してください。"
+level: warning
+ignorecase: true
+swap:
+  "行なう": "行う"
+  "おこなう": "行う"
+  "できる様": "できるよう"
+  "であるが、": "であるが"
