@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
+import { Providers } from "./providers";
 
 const notoSansJP = Noto_Sans_JP({
   variable: "--font-noto-sans-jp",
@@ -9,9 +10,11 @@ const notoSansJP = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: "LineaDoc - 文書エディタ",
-  description: "AI-Powered Document Lineage - 文書変更履歴の可視化とAI支援",
+  title: "LineaDoc - AI-Powered Document Lineage",
+  description: "Professional document editor with visual change history (Lineage) and AI support.",
 };
+
+// ... (imports)
 
 export default function RootLayout({
   children,
@@ -21,7 +24,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={`${notoSansJP.variable} antialiased`}>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

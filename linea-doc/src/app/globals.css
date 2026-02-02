@@ -7,10 +7,6 @@
   /* slate-900 */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-}
 
 body {
   background: var(--background);
@@ -176,42 +172,3 @@ body {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Auto Numbering for Headings in Preview                                     */
-/* -------------------------------------------------------------------------- */
-
-.prose {
-  counter-reset: h1counter;
-}
-
-.prose h1 {
-  counter-reset: h2counter;
-}
-
-.prose h1::before {
-  counter-increment: h1counter;
-  content: counter(h1counter) ". ";
-  color: #94a3b8;
-  /* slate-400 */
-  margin-right: 0.25em;
-  font-weight: normal;
-}
-
-.prose h2 {
-  counter-reset: h3counter;
-}
-
-.prose h2::before {
-  counter-increment: h2counter;
-  content: counter(h1counter) "." counter(h2counter) " ";
-  color: #94a3b8;
-  margin-right: 0.25em;
-  font-weight: normal;
-}
-
-.prose h3::before {
-  counter-increment: h3counter;
-  content: counter(h1counter) "." counter(h2counter) "." counter(h3counter) " ";
-  color: #94a3b8;
-  margin-right: 0.25em;
-  font-weight: normal;
-}

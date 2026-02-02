@@ -22,7 +22,7 @@ export function AlertDialog({ isOpen, onClose, title, description, actions }: Al
     const getVariantClasses = (variant: ActionButton['variant'] = 'primary') => {
         switch (variant) {
             case 'primary':
-                return 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm';
+                return 'bg-teal-600 text-white hover:bg-teal-700 shadow-sm';
             case 'danger':
                 return 'bg-red-600 text-white hover:bg-red-700 shadow-sm';
             case 'secondary':
@@ -32,7 +32,7 @@ export function AlertDialog({ isOpen, onClose, title, description, actions }: Al
             case 'ghost':
                 return 'text-slate-500 hover:text-slate-700 hover:bg-slate-100';
             default:
-                return 'bg-blue-600 text-white hover:bg-blue-700';
+                return 'bg-teal-600 text-white hover:bg-teal-700';
         }
     };
 

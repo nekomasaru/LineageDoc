@@ -1,46 +1,31 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { X, MessageSquare } from 'lucide-react';
+import { useCallback } from 'react';
+import { X, AlertTriangle } from 'lucide-react';
+import { useLanguage } from '@/lib/LanguageContext';
 
-interface InputModalProps {
+interface ConfirmModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (value: string) => void;
+    onConfirm: () => void;
     title: string;
-    label?: string;
-    placeholder?: string;
-    defaultValue?: string;
+    message: string;
     confirmText?: string;
+    cancelText?: string;
+    variant?: 'danger' | 'warning' | 'info';
 }
 
-export function InputModal({
+export function ConfirmModal({
     isOpen,
     onClose,
     onConfirm,
     title,
-    label = '入力',
-    placeholder = '',
-    defaultValue = '',
-    confirmText = '確定',
-}: InputModalProps) {
-    const [value, setValue] = useState(defaultValue);
-    const inputRef = useRef<HTMLInputElement>(null);
-
-    // Reset value when modal opens
-    useEffect(() => {
-        if (isOpen) {
-            setValue(defaultValue);
-            setTimeout(() => inputRef.current?.focus(), 50);
-        }
-    }, [isOpen, defaultValue]);
-
-    const handleSubmit = useCallback((e: React.FormEvent) => {
-        e.preventDefault();
-        onConfirm(value);
-        setValue('');
-    }, [value, onConfirm]);
-
+    message,
+    confirmText,
+    cancelText,
+    variant = 'warning',
+}: ConfirmModalProps) {
+    const { t } = useLanguage();
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Escape') {
             onClose();
@@ -48,6 +33,23 @@ export function InputModal({
     }, [onClose]);
 
     if (!isOpen) return null;
+
+    const variantStyles = {
+        danger: {
+            icon: 'text-red-500',
+            button: 'bg-red-500 hover:bg-red-600',
+        },
+        warning: {
+            icon: 'text-amber-500',
+            button: 'bg-amber-500 hover:bg-amber-600',
+        },
+        info: {
+            icon: 'text-teal-500',
+            button: 'bg-teal-500 hover:bg-teal-600',
+        },
+    };
+
+    const styles = variantStyles[variant];
 
     return (
         <div
@@ -62,7 +64,7 @@ export function InputModal({
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-slate-50">
                     <div className="flex items-center gap-2">
-                        <MessageSquare className="text-amber-500" size={20} />
+                        <AlertTriangle className={styles.icon} size={20} />
                         <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
                     </div>
                     <button
@@ -74,18 +76,8 @@ export function InputModal({
                 </div>
 
                 {/* Content */}
-                <form onSubmit={handleSubmit} className="p-5">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                        {label}
-                    </label>
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        value={value}
-                        onChange={(e) => setValue(e.target.value)}
-                        placeholder={placeholder}
-                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-slate-800 placeholder:text-slate-400"
-                    />
+                <div className="p-5">
+                    <p className="text-slate-600 whitespace-pre-line">{message}</p>
 
                     {/* Actions */}
                     <div className="flex justify-end gap-3 mt-5">
@@ -94,16 +86,20 @@ export function InputModal({
                             onClick={onClose}
                             className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
                         >
-                            キャンセル
+                            {cancelText || t('common.cancel')}
                         </button>
                         <button
-                            type="submit"
-                            className="px-4 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                            type="button"
+                            onClick={() => {
+                                onConfirm();
+                                onClose();
+                            }}
+                            className={`px-4 py-2 rounded-lg text-white transition-colors ${styles.button}`}
                         >
-                            {confirmText}
+                            {confirmText || t('common.confirm')}
                         </button>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
     );

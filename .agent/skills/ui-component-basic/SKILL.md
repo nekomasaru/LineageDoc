@@ -23,8 +23,9 @@ meta:
    - コンポーネント内でTailwindクラスを完結させる。
 
 3. **Color Palette**:
-   - Primary: Blue (`bg-blue-600`, `text-blue-600`)
-   - Accent/Warning: Amber (`text-amber-500`)
+   - Primary: Teal (`bg-teal-600`, `text-teal-600`) - LineaDocのメインブランドカラー。
+   - Accent: Teal/Cyan (`text-teal-500`, `bg-teal-50`)
+   - Warning: Amber (`text-amber-500`)
    - Danger: Red (`text-red-500`)
    - Text: Slate (`text-slate-800` for headings, `text-slate-600` for body)
 
@@ -70,3 +71,9 @@ meta:
   - モーダル: `z-50`
   - オーバーレイ: `z-40` (backdrop)
   - ツールチップ/ポップオーバー: `z-50`以上
+
+# 外部ライブラリ導入時の注意
+
+1. **shadcn/ui の導入**:
+   - shadcn/ui を導入する場合は、MITライセンスに基づき、適切なライセンス表記（クレジット）をドキュメントや「About」ページ等に含めること。
+   - コンポーネント自体にライセンスコメントが含まれている場合は、それを削除しないこと。

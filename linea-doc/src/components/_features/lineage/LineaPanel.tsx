@@ -6,6 +6,7 @@ import { ja } from 'date-fns/locale';
 import { User, Bot, Save, Trash2, Copy, GitBranch, Edit2 } from 'lucide-react';
 import { LineaEvent } from '@/lib/types';
 import { calculateGraphLayout } from '@/lib/linea-utils';
+import { useLanguage } from '@/lib/LanguageContext';
 
 interface LineaPanelProps {
     events: LineaEvent[];
@@ -23,22 +24,22 @@ interface LineaPanelProps {
 const eventConfig: Record<string, any> = {
     user_edit: {
         icon: User,
-        label: '編集',
-        color: '#3b82f6', // blue-500
+        labelKey: 'panel.edit',
+        color: '#0d9488', // teal-600
         bgColor: 'bg-slate-100',
         textColor: 'text-slate-800',
     },
     ai_suggestion: {
         icon: Bot,
-        label: 'AI提案',
-        color: '#8b5cf6', // violet-500
-        bgColor: 'bg-blue-50',
-        textColor: 'text-blue-800',
+        labelKey: 'panel.aiSuggest',
+        color: '#7c3aed', // violet-600
+        bgColor: 'bg-indigo-50',
+        textColor: 'text-indigo-800',
     },
     save: {
         icon: Save,
-        label: '保存',
-        color: '#22c55e', // green-500
+        labelKey: 'panel.save',
+        color: '#16a34a', // green-600
         bgColor: 'bg-green-50',
         textColor: 'text-green-800',
     },
@@ -61,6 +62,7 @@ export function LineaPanel({
     onCancelBranch,
     onEditComment,
 }: LineaPanelProps) {
+    const { t } = useLanguage();
     // グラフレイアウト計算
     const { nodes, links, maxColumn } = useMemo(() => calculateGraphLayout(events), [events]);
 
@@ -84,18 +86,21 @@ export function LineaPanel({
     return (
         <div className="w-full h-full bg-slate-50 border-r border-slate-200 flex flex-col shrink-0">
             {/* Header */}
-            <div className="h-12 bg-slate-800 text-white flex items-center px-4 shrink-0 justify-between">
-                <div className="flex items-center">
-                    <h2 className="font-semibold text-sm">変更履歴</h2>
-                    <span className="ml-2 text-xs text-slate-400">({events.length})</span>
+            <div className="h-12 bg-white border-b border-slate-200 flex items-center px-4 shrink-0 justify-between">
+                <div className="flex items-center gap-2">
+                    <div className="w-1 h-4 bg-teal-600 rounded-full"></div>
+                    <h2 className="font-bold text-slate-900 text-sm tracking-tight">{t('panel.title')}</h2>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                        {events.length}
+                    </span>
                 </div>
             </div>
 
             {/* Content Area (SVG + List) */}
             <div id="lineage-tree-container" className="flex-1 overflow-auto relative">
                 {nodes.length === 0 ? (
-                    <div className="text-center text-slate-500 py-8">
-                        <p className="text-sm">履歴がありません</p>
+                    <div className="text-center text-slate-400 py-12 px-6">
+                        <p className="text-xs">{t('panel.empty')}</p>
                     </div>
                 ) : (
                     <div
@@ -146,8 +151,8 @@ export function LineaPanel({
                                             cx={cx}
                                             cy={cy}
                                             r={CIRCLE_RADIUS}
-                                            fill={isSelected ? '#3b82f6' : '#fff'}
-                                            stroke={isSelected ? '#2563eb' : '#94a3b8'}
+                                            fill={isSelected ? '#14b8a6' : '#fff'} // teal-500
+                                            stroke={isSelected ? '#0d9488' : '#94a3b8'} // teal-600
                                             strokeWidth={isSelected ? 2 : 1}
                                         />
                                         <text
@@ -211,7 +216,7 @@ export function LineaPanel({
                                         key={event.id}
                                         style={{ height: ROW_HEIGHT, paddingLeft: graphWidth + 8, overflow: 'hidden' }}
                                         className={`min-w-max h-16 w-full flex items-center pr-2 border-b border-slate-100 transition-colors cursor-pointer shrink-0
-                                            ${isSelected ? 'bg-blue-50/80' : 'hover:bg-slate-50'}
+                                            ${isSelected ? 'bg-teal-50/80' : 'hover:bg-slate-50'}
                                         `}
                                         onClick={() => onSelectEvent(event)}
                                     >
@@ -222,16 +227,17 @@ export function LineaPanel({
                                                 </span>
                                                 <span className={`text-xs font-medium ${config.textColor} flex items-center gap-1`}>
                                                     <Icon size={12} />
-                                                    {config.label}
+                                                    {t(config.labelKey)}
                                                 </span>
                                                 {isLatest && (
-                                                    <span className="ml-auto text-[10px] bg-blue-500 text-white px-1.5 rounded-full">
-                                                        Latest
+                                                    <span className="ml-auto text-[10px] bg-teal-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                        {t('panel.latest')}
                                                     </span>
                                                 )}
                                             </div>
                                             <div className="text-[10px] text-slate-400 mb-0.5">
-                                                {format(new Date(event.timestamp), 'yyyy/MM/dd HH:mm:ss', { locale: ja })}
+                                                {/* Date formatting could be localized too but sticking to numeric for now */}
+                                                {format(new Date(event.timestamp), 'yyyy/MM/dd HH:mm:ss')}
                                             </div>
 
                                         </div>
@@ -252,7 +258,7 @@ export function LineaPanel({
                         className="w-full flex items-center justify-center gap-2 py-2 bg-amber-500 text-white hover:bg-amber-600 rounded text-sm font-medium transition-colors shadow-sm"
                     >
                         <GitBranch size={14} />
-                        <span>{isSelectedTip ? '編集を中断' : '分岐の作成をキャンセル'}</span>
+                        <span>{isSelectedTip ? t('panel.cancelEdit') : t('panel.cancelBranch')}</span>
                     </button>
                 )}
 
@@ -261,31 +267,34 @@ export function LineaPanel({
                     <div className="space-y-2">
                         {onStartBranch && (
                             isSelectedTip ? (
+                                /* 最新の先端（Tip）を選択している場合 */
                                 <div className="flex gap-2">
-                                    <button
-                                        onClick={() => onStartBranch(selectedEvent)}
-                                        className="flex-1 flex items-center justify-center gap-2 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded text-sm font-medium transition-colors shadow-sm"
-                                        title="このブランチの続きを作成します"
-                                    >
-                                        <Edit2 size={14} />
-                                        <span>編集</span>
-                                    </button>
-                                    <button
-                                        onClick={() => onStartBranch(selectedEvent)}
-                                        className="flex-1 flex items-center justify-center gap-2 py-2 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded text-sm font-medium transition-colors shadow-sm"
-                                        title="この時点から新しいブランチを作成します"
-                                    >
-                                        <GitBranch size={14} />
-                                        <span>分岐</span>
-                                    </button>
+                                    {/* 最新の場合は「編集」ボタンのみを表示（実質エディタでの編集と同じだが、明示的なアクションとして残すか、あるいは非表示にするか。ユーザーは「意味がない」と言っているので、最新のときはボタン自体を隠すのが正解かもしれない。しかし、読み取り専用モードから編集に戻る動線が必要。
+                                       いや、このボタンは `onStartBranch` を呼ぶ。これは `setIsBranching(true)` になる。
+                                       最新に対する `onStartBranch` は、「続きを書く」こと。
+                                       ユーザーは「最新履歴からブランチしても意味がない」と言っている。
+                                       つまり、最新ノードを選択しているときは、単にエディタで書けばいいだけなので、このボタンは不要。
+                                    */
+                                    }
+                                    {!isSelectedLatest && (
+                                        <button
+                                            onClick={() => onStartBranch(selectedEvent)}
+                                            className="w-full flex items-center justify-center gap-2 py-2 bg-teal-600 text-white hover:bg-teal-700 rounded text-sm font-medium transition-colors shadow-sm"
+                                            title="Resume editing this branch"
+                                        >
+                                            <Edit2 size={14} />
+                                            <span>{t('panel.edit')}</span>
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
+                                /* 過去のノードを選択している場合 */
                                 <button
                                     onClick={() => onStartBranch(selectedEvent)}
-                                    className="w-full flex items-center justify-center gap-2 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded text-sm font-medium transition-colors shadow-sm"
+                                    className="w-full flex items-center justify-center gap-2 py-2 bg-teal-600 text-white hover:bg-teal-700 rounded text-sm font-medium transition-colors shadow-sm"
                                 >
                                     <GitBranch size={14} />
-                                    <span>このバージョンから分岐を作成</span>
+                                    <span>{t('panel.createBranchFrom')}</span>
                                 </button>
                             )
                         )}
@@ -296,7 +305,7 @@ export function LineaPanel({
                                 className="w-full flex items-center justify-center gap-2 py-2 bg-green-500 text-white hover:bg-green-600 rounded text-sm font-medium transition-colors shadow-sm"
                             >
                                 <Copy size={14} />
-                                <span>v{selectedEvent.version ?? '?'} を最新として復元</span>
+                                <span>{t('panel.restoreAsLatest', { version: selectedEvent.version ?? '?' })}</span>
                             </button>
                         )}
                     </div>
@@ -306,7 +315,7 @@ export function LineaPanel({
                     className="w-full flex items-center justify-center gap-2 py-1.5 text-red-600 hover:bg-red-50 rounded text-xs transition-colors"
                 >
                     <Trash2 size={12} />
-                    <span>履歴リセット</span>
+                    <span>{t('panel.clearHistory')}</span>
                 </button>
             </div>
         </div>

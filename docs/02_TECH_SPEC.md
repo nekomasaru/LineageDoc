@@ -9,12 +9,26 @@
 - **Markdown**: `react-markdown` ^10.1.0, `remark-gfm` ^4.0.1
 - **Icons**: `lucide-react`
 
+## Application Identity & Localization
+
+### 1. Branding (Teal Blue)
+- **Primary Color**: Teal (`teal-600`)
+- **Logo**: SVG-based Vector Logo ("LD" monogram).
+- **Favicon**: Dynamically generated via `next/og` (`src/app/icon.tsx`) to match the logo perfectly.
+
+### 2. Internationalization (i18n)
+- **Strategy**: React Context (`LanguageContext`).
+- **Supported Languages**: Japanese (`ja`), English (`en`).
+- **Persistance**: Local state (resets on reload, currently).
+- **Scope**: Covers all static UI text, modals, and messages.
+
 ## Directory Structure (Current)
 
 ```
 /linea-doc
   /src
     /app
+      icon.tsx        # Dynamic Favicon Generation
       page.tsx        # Main application controller (State routing, Layout)
       layout.tsx      # Global layout & Font configuration (Noto Sans JP)
       globals.css     # Global styles & Tailwind directives
@@ -33,11 +47,15 @@
         BranchCommentModal.tsx # Branch creation modal
         InputModal.tsx       # Generic input modal (e.g., Comment edit)
         ConfirmModal.tsx     # Generic confirmation modal (e.g., Reset)
+        Logo.tsx             # SVG Logo Component
+        GuideModal.tsx       # Help/Manual Modal
     /hooks
       useLineage.ts          # History management logic & Persistence
     /lib
       types.ts               # Shared type definitions
       lineage-utils.ts       # Graph layout algorithms
+      LanguageContext.tsx    # i18n Logic
+      defaultMarkdown.ts     # Initial content templates
 ```
 
 ## Data Models
@@ -117,3 +135,6 @@ Bi-directional scroll synchronization ensures the editor and preview pane stay a
 ### 5. Future AI Integration (Planned)
 - **Supabase**: Cloud persistence and vector store for knowledge base.
 - **Vertex AI**: Intelligent suggestions and automated summarization.
+
+### 6. External Components & Licensing
+- **shadcn/ui**: If introduced, ensure compliance with the MIT License by maintaining license headers and providing appropriate attribution in the application's documentation or "About" section.

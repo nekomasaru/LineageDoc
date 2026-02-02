@@ -14,16 +14,19 @@ import { InputModal } from '@/components/_shared/InputModal';
 import { ConfirmModal } from '@/components/_shared/ConfirmModal';
 import { Logo } from '@/components/_shared/Logo';
 import { useLinea } from '@/hooks/useLinea';
+import { useLanguage } from '@/lib/LanguageContext';
+import { defaultMarkdown } from '@/lib/defaultMarkdown';
 import { LineaEvent } from '@/lib/types';
 
 type RightPaneMode = 'preview' | 'ai';
 
 export default function Home() {
-  const [content, setContent] = useState('# Title ');
+  const { t, language } = useLanguage();
+  const [markdown, setMarkdown] = useState<string>('');
   const [displayContent, setDisplayContent] = useState('');
   const [editorTargetLine, setEditorTargetLine] = useState<number | undefined>(undefined);
   const [previewTargetLine, setPreviewTargetLine] = useState<number | undefined>(undefined);
-  const [showDiff, setShowDiff] = useState(true);
+  const [showDiff, setShowDiff] = useState(false);
   const [isSaved, setIsSaved] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState<string | undefined>(undefined);
   const [rightPaneMode, setRightPaneMode] = useState<RightPaneMode>('preview');
@@ -75,9 +78,10 @@ export default function Home() {
   useEffect(() => {
     if (isLoaded && events.length > 0) {
       const latest = events[events.length - 1];
-      setContent(latest.content);
-      lastSavedContentRef.current = latest.content;
-      setDisplayContent(latest.content);
+      const content = latest.content || '';
+      setMarkdown(content);
+      lastSavedContentRef.current = content;
+      setDisplayContent(content);
       setSelectedEventId(latest.id);
     }
   }, [isLoaded, events.length]); // events全体への依存は重いが、length監視で初期同期を行う。厳密には見直しが必要だが既存ロジックを踏襲
@@ -89,32 +93,33 @@ export default function Home() {
   }, [latestEventId, selectedEventId]);
 
   const handleCreateNew = useCallback(() => {
-    const initialText = '# Title ';
-    resetWithContent(initialText, '新規ドキュメント');
-    setContent(initialText);
+    const initialText = defaultMarkdown[t('lang') as keyof typeof defaultMarkdown];
+    resetWithContent(initialText, t('save.newDocument'));
+    setMarkdown(initialText);
     setDisplayContent(initialText);
     lastSavedContentRef.current = initialText;
     setIsSaved(true);
     setIsBranching(false);
-  }, [resetWithContent]);
+  }, [resetWithContent, t]);
 
   const handleImportFile = useCallback((fileContent: string, filename: string) => {
-    resetWithContent(fileContent, `${filename} をインポート`);
-    setContent(fileContent);
+    resetWithContent(fileContent, t('save.importFile', { filename }));
+    setMarkdown(fileContent);
     setDisplayContent(fileContent);
     lastSavedContentRef.current = fileContent;
     setIsSaved(true);
     setIsBranching(false);
-  }, [resetWithContent]);
+  }, [resetWithContent, t]);
 
 
 
   const handleSave = useCallback(() => {
-    if (content !== lastSavedContentRef.current) {
+    const lastSaved = lastSavedContentRef.current || '';
+    if (markdown !== lastSaved) {
       // 分岐モード時はモーダルで入力したコメントを使用
       const summary = isBranching && branchCommentRef.current
         ? branchCommentRef.current
-        : `${Math.abs(content.length - lastSavedContentRef.current.length)}文字の変更を保存`;
+        : t('save.summary', { chars: Math.abs(markdown.length - lastSaved.length) });
 
       // 親IDの決定: 
       // 1. 分岐モードなら分岐元ID (branchSourceIdRef) を親にする
@@ -124,16 +129,16 @@ export default function Home() {
         ? branchSourceIdRef.current
         : (isViewingLatest ? latestEventId : selectedEventId);
 
-      const newEvent = addEvent(content, 'user_edit', parentId ?? null, summary);
-      lastSavedContentRef.current = content;
+      const newEvent = addEvent(markdown, 'user_edit', parentId ?? null, summary);
+      lastSavedContentRef.current = markdown;
       setIsSaved(true);
       setIsBranching(false);
       branchCommentRef.current = ''; // リセット
       branchSourceIdRef.current = null;
       setSelectedEventId(newEvent.id);
-      setDisplayContent(content);
+      setDisplayContent(markdown);
     }
-  }, [content, addEvent, isViewingLatest, latestEventId, selectedEventId, isBranching]);
+  }, [markdown, addEvent, isViewingLatest, latestEventId, selectedEventId, isBranching, t]);
 
   // エクスポート機能
   const handleExport = useCallback(() => {
@@ -166,7 +171,7 @@ export default function Home() {
   // 実際にファイルを閉じる処理
   const executeCloseFile = useCallback(() => {
     clearEvents();
-    setContent('');
+    setMarkdown('');
     setDisplayContent('');
     lastSavedContentRef.current = '';
     setIsSaved(true);
@@ -197,7 +202,7 @@ export default function Home() {
 
   const handleContentChange = useCallback((newContent: string) => {
     if (!isViewingLatest && !isBranching) return;
-    setContent(newContent);
+    setMarkdown(newContent);
     setDisplayContent(newContent);
     setIsSaved(newContent === lastSavedContentRef.current);
   }, [isViewingLatest, isBranching]);
@@ -216,25 +221,26 @@ export default function Home() {
     setSelectedEventId(event.id);
     setIsBranching(false);
     if (event.id === latestEventId) {
-      setDisplayContent(content);
+      setDisplayContent(markdown);
     } else {
-      setDisplayContent(event.content);
+      setDisplayContent(event.content || '');
     }
-  }, [latestEventId, content]);
+  }, [latestEventId, markdown]);
 
   const handleMakeLatest = useCallback((event: LineaEvent) => {
     // モーダルを表示してコメントを取得
     setPendingBranchAction({ type: 'restore', event });
-    setBranchModalTitle(`v${event.version ?? '?'}を復元`);
+    setBranchModalTitle(t('modal.restoreBranch.title', { version: event.version ?? '?' }));
     setShowBranchModal(true);
-  }, []);
+  }, [t]);
 
   const handleStartBranch = useCallback((event: LineaEvent) => {
     // モーダルを表示してコメントを取得
     setPendingBranchAction({ type: 'branch', event });
-    setBranchModalTitle(`v${event.version ?? '?'}から分岐`);
+    setBranchModalTitle(t('modal.createBranch.title', { version: event.version ?? '?' }));
     setShowBranchModal(true);
-  }, []);
+    // Ensure title is updated when modal opens (handled by rendering logic or state if needed)
+  }, [t]);
 
   const handleBranchModalConfirm = useCallback((comment: string) => {
     if (!pendingBranchAction) return;
@@ -243,10 +249,11 @@ export default function Home() {
 
     if (type === 'restore') {
       // 復元は選択されたイベントを親として分岐を作成する
-      const newEvent = addEvent(event.content, 'user_edit', event.id, comment);
-      setContent(event.content);
-      setDisplayContent(event.content);
-      lastSavedContentRef.current = event.content;
+      const content = event.content || '';
+      const newEvent = addEvent(content, 'user_edit', event.id, comment);
+      setMarkdown(content);
+      setDisplayContent(content);
+      lastSavedContentRef.current = content;
       setIsSaved(true);
       setIsBranching(false);
       setSelectedEventId(newEvent.id);
@@ -255,7 +262,7 @@ export default function Home() {
       // コメントと分岐元IDを保存（保存時に使用）
       branchCommentRef.current = comment;
       branchSourceIdRef.current = event.id;
-      setContent(event.content);
+      setMarkdown(event.content);
       setDisplayContent(event.content);
       lastSavedContentRef.current = event.content;
       setIsBranching(true);
@@ -286,21 +293,25 @@ export default function Home() {
         setDisplayContent(event.content);
         lastSavedContentRef.current = event.content;
       }
+    } else if (latestEvent) {
+      // 選択中のイベントがなければ最新のイベントの内容を再表示
+      setDisplayContent(latestEvent.content);
+      lastSavedContentRef.current = latestEvent.content;
     }
     setIsSaved(true);
-  }, [selectedEventId, getEventById]);
+  }, [selectedEventId, getEventById, latestEvent]);
 
   const handleClearHistory = useCallback(() => {
     setShowResetConfirmModal(true);
   }, []);
 
   const handleConfirmReset = useCallback(() => {
-    const newEvent = resetWithContent(content, '履歴のリセット');
-    lastSavedContentRef.current = content;
+    const newEvent = resetWithContent(markdown, t('save.resetHistory'));
+    lastSavedContentRef.current = markdown;
     setIsSaved(true);
     setSelectedEventId(newEvent.id);
     setShowResetConfirmModal(false);
-  }, [resetWithContent, content]);
+  }, [resetWithContent, markdown, t]);
 
   // コメント編集ハンドラ
   const handleEditComment = useCallback((event: LineaEvent) => {
@@ -431,10 +442,10 @@ export default function Home() {
     // 差分表示: 親ノードとの比較（分岐元との差分を表示）
     if (isViewingLatest && latestEventId && latestEvent) {
       const parent = latestEvent.parentId ? getEventById(latestEvent.parentId) : null;
-      return parent?.content;
+      return parent?.content || '';
     } else if (selectedEventId && selectedEvent) {
       const parent = selectedEvent.parentId ? getEventById(selectedEvent.parentId) : null;
-      return parent?.content;
+      return parent?.content || '';
     }
     return undefined;
   })();
@@ -445,13 +456,25 @@ export default function Home() {
     `p-1.5 rounded transition-colors ${isActive ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:bg-slate-200'
     }`;
 
+  const handlers = {
+    closeFile: handleCloseFile,
+    exportMarkdown: handleExport,
+    save: handleSave,
+    startResizing: (e: React.MouseEvent, type: 'sidebar' | 'editor') => {
+      e.preventDefault();
+      setIsResizing(type);
+    }
+  };
+
+  const isDiffView = showDiff && compareWith !== undefined;
+
   // コンテンツが無い（履歴が無い）場合はWelcome画面を表示
   if (isLoaded && !hasHistory) {
     return (
       <div className="h-screen w-full flex flex-col bg-slate-50 overflow-hidden">
         {/* Welcome Header (Simple) */}
-        <header className="h-12 bg-white border-b border-slate-200 flex items-center px-4 justify-between shrink-0 z-20 shadow-sm relative">
-          <div className="flex items-center gap-2 select-none">
+        <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 z-30">
+          <div className="flex items-center gap-3">
             <Logo size={24} />
             <span className="text-slate-700 font-semibold">LineaDoc</span>
           </div>
@@ -460,14 +483,16 @@ export default function Home() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors text-xs font-medium"
           >
             <HelpCircle size={16} />
-            <span className="hidden sm:inline">ヘルプ</span>
+            <span className="hidden sm:inline">{t('header.help')}</span>
           </button>
         </header>
 
-        <WelcomeScreen
-          onCreateNew={handleCreateNew}
-          onImportFile={handleImportFile}
-        />
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
+          <WelcomeScreen
+            onCreateNew={handleCreateNew}
+            onImportFile={handleImportFile}
+          />
+        </div>
         <GuideModal isOpen={showGuide} onClose={() => setShowGuide(false)} />
       </div>
     );
@@ -479,67 +504,75 @@ export default function Home() {
       {/* Header */}
       <header className="h-12 bg-white border-b border-slate-200 flex items-center px-4 justify-between shrink-0 z-20 shadow-sm relative">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 select-none">
+          <div
+            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group"
+            onClick={handlers.closeFile}
+            title={t('header.returnHome')}
+          >
             <Logo size={24} />
-            <span className="text-slate-700 font-semibold">LineaDoc</span>
+            <span className="text-slate-800 font-bold tracking-tight group-hover:text-teal-600 transition-colors">LineaDoc</span>
           </div>
-          <div className="h-4 w-px bg-slate-300 mx-1" />
-          <div className="flex items-center gap-2 text-xs">
-            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium border border-slate-200">
-              v{currentVersion}
-            </span>
-            <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-colors ${isSaved
-              ? 'bg-green-50 text-green-700 border-green-200'
-              : 'bg-amber-50 text-amber-700 border-amber-200'
-              }`}>
-              <div className={`w-1.5 h-1.5 rounded-full ${isSaved ? 'bg-green-500' : 'bg-amber-500 animate-pulse'}`} />
-              {isSaved ? '保存済み' : '未保存'}
-            </span>
+          <div className="h-6 w-px bg-slate-200 mx-2" />
 
-            {/* Branch Mode Indicator */}
-            {isBranching && branchCommentRef.current && (
-              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border bg-orange-50 text-orange-700 border-orange-200">
-                <GitBranch size={12} />
-                分岐: {branchCommentRef.current.length > 20 ? branchCommentRef.current.slice(0, 20) + '…' : branchCommentRef.current}
-              </span>
-            )}
+          {/* Version Badge */}
+          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium border border-slate-200 text-xs">
+            v{currentVersion}
+          </span>
 
-            {/* Diff Labels */}
-            {showDiff && compareWith !== undefined && (
-              <div className="flex gap-2 ml-2">
-                <div className="bg-blue-600/10 text-blue-700 text-xs px-2 py-0.5 rounded border border-blue-200 flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  {`v${parentVersion}との差分`}
-                </div>
-                {isViewingLatest && !isSaved && (
-                  <div className="bg-green-600/10 text-green-700 text-xs px-2 py-0.5 rounded border border-green-200 flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    未保存の変更
-                  </div>
-                )}
+          {/* Status Badge */}
+          <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-colors ${isSaved
+            ? 'bg-teal-50 text-teal-700 border-teal-200'
+            : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${isSaved ? 'bg-teal-500' : 'bg-amber-500 animate-pulse'}`} />
+            {isSaved ? t('header.saved') : t('header.unsaved')}
+          </span>
+
+          {/* Branch Mode Indicator */}
+          {isBranching && branchCommentRef.current && (
+            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border bg-orange-50 text-orange-700 border-orange-200">
+              <GitBranch size={12} />
+              {t('header.branch', { branch: branchCommentRef.current.length > 20 ? branchCommentRef.current.slice(0, 20) + '…' : branchCommentRef.current })}
+            </span>
+          )}
+
+          {/* Diff Mode Indicator */}
+          {isDiffView && parentVersion !== undefined && (
+            <div className="flex gap-2 ml-2">
+              <div className="bg-teal-600/10 text-teal-700 text-xs px-2 py-0.5 rounded border border-teal-200 flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-teal-500"></div>
+                {t('header.diff', { version: parentVersion })}
               </div>
-            )}
-          </div>
+              {isViewingLatest && !isSaved && (
+                <div className="bg-green-600/10 text-green-700 text-xs px-2 py-0.5 rounded border border-green-200 flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                  {t('header.unsavedChanges')}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
           {/* Close File Button */}
           <button
-            onClick={handleCloseFile}
-            className="flex items-center gap-1.5 px-2 py-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 rounded transition-colors text-xs font-medium mr-2"
-            title="ファイルを閉じる（Welcome画面へ）"
+            onClick={handlers.closeFile}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors text-xs font-medium"
+            title="Close file"
           >
             <X size={16} />
           </button>
 
+          <div className="h-4 w-px bg-slate-300 mx-1" />
+
           {/* Export Button */}
           <button
-            onClick={handleExport}
+            onClick={handlers.exportMarkdown}
             className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors text-xs font-medium"
-            title="Markdownとしてエクスポート"
+            title="Export as Markdown"
           >
             <Download size={16} />
-            <span className="hidden sm:inline">エクスポート</span>
+            <span className="hidden sm:inline">{t('header.export')}</span>
           </button>
 
           <div className="h-4 w-px bg-slate-300 mx-1" />
@@ -548,10 +581,10 @@ export default function Home() {
           <button
             onClick={() => setShowGuide(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors text-xs font-medium"
-            title="使い方を見る"
+            title="View help guide"
           >
             <HelpCircle size={16} />
-            <span className="hidden sm:inline">ヘルプ</span>
+            <span className="hidden sm:inline">{t('header.help')}</span>
           </button>
 
           <div className="h-4 w-px bg-slate-300 mx-1" />
@@ -563,7 +596,7 @@ export default function Home() {
                 setRightPaneMode('preview');
               }}
               className={modeBtnClass(rightPaneMode === 'preview' && showDiff)}
-              title="差分 + プレビュー"
+              title="Diff + Preview"
             >
               <Eye size={16} />
             </button>
@@ -573,39 +606,40 @@ export default function Home() {
                 setRightPaneMode('preview');
               }}
               className={modeBtnClass(rightPaneMode === 'preview' && !showDiff)}
-              title="プレビューのみ"
+              title="Preview only"
             >
               <EyeOff size={16} />
             </button>
             <button
               onClick={() => setRightPaneMode('ai')}
               className={modeBtnClass(rightPaneMode === 'ai')}
-              title="AIアシスタント"
+              title="AI Assistant"
             >
               <Bot size={16} />
             </button>
           </div>
 
           <button
-            onClick={handleSave}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded transition-all shadow-sm text-xs font-medium ${isSaved
-              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow shadow-blue-200'
+            onClick={handlers.save}
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded shadow-sm text-xs font-bold transition-all ${isSaved
+              ? 'bg-slate-100 text-slate-400 cursor-default'
+              : 'bg-teal-600 text-white hover:bg-teal-700 hover:shadow-md hover:-translate-y-0.5'
               }`}
             disabled={isSaved}
-            title="Ctrl+S で保存"
+            title="Save (Ctrl+S)"
           >
             <Save size={14} />
-            保存
+            {t('header.save')}
           </button>
         </div>
-      </header>
+      </header >
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden relative">
+      < div className="flex-1 flex overflow-hidden relative" >
         {/* Left: History */}
-        <div
-          style={{ width: sidebarWidth }}
+        < div
+          style={{ width: sidebarWidth }
+          }
           className="border-r border-slate-200 bg-white shrink-0 z-10 flex flex-col"
         >
           <LineaPanel
@@ -617,15 +651,15 @@ export default function Home() {
             onClearHistory={handleClearHistory}
             onMakeLatest={handleMakeLatest}
             onStartBranch={handleStartBranch}
-            onCancelBranch={() => setIsBranching(false)}
+            onCancelBranch={handleCancelBranch}
             onEditComment={handleEditComment}
           />
-        </div>
+        </div >
 
         {/* Resize Handle: Sidebar <-> Editor */}
-        <div
-          className="w-1 bg-slate-200 hover:bg-blue-400 cursor-col-resize transition-colors shrink-0"
-          onMouseDown={() => setIsResizing('sidebar')}
+        < div
+          className="w-1 bg-slate-200 hover:bg-teal-600 cursor-col-resize transition-colors shrink-0"
+          onMouseDown={(e) => handlers.startResizing(e, 'sidebar')}
         />
 
         {/* Center + Right: Editor & Preview Container */}
@@ -653,8 +687,8 @@ export default function Home() {
 
           {/* Resize Handle: Editor <-> Preview */}
           <div
-            className="w-1 bg-slate-200 hover:bg-blue-400 cursor-col-resize transition-colors shrink-0"
-            onMouseDown={() => setIsResizing('editor')}
+            className="w-1 bg-slate-200 hover:bg-teal-600 cursor-col-resize transition-colors shrink-0"
+            onMouseDown={(e) => handlers.startResizing(e, 'editor')}
           />
 
           {/* Right: Preview or AI */}
@@ -668,39 +702,41 @@ export default function Home() {
               />
             ) : (
               <AIChatPane
-                currentContent={content}
+                currentContent={markdown}
                 onApplyContent={handleContentChange}
               />
             )}
           </div>
         </div>
-      </div>
+      </div >
 
       <AlertDialog
         isOpen={showCloseDialog}
         onClose={() => setShowCloseDialog(false)}
-        title="ファイルを閉じますか？"
+        title={t('modal.closeFile.title')}
         description={
           <div className="space-y-2">
-            <p>現在の編集内容は破棄され、復元できなくなります。</p>
-            <p className="text-sm text-slate-500">※Markdownファイルとしてエクスポート（保存）してから閉じることを推奨します。</p>
+            <p>{t('modal.closeFile.desc')}</p>
+            <p className="text-[11px] text-slate-400 font-medium italic">
+              {t('modal.closeFile.recommend')}
+            </p>
           </div>
         }
         actions={[
           {
-            label: 'エクスポートして終了',
+            label: t('modal.closeFile.exportExit'),
             onClick: handleExportAndClose,
             variant: 'primary',
             icon: <Download size={16} />
           },
           {
-            label: '保存せずに終了',
+            label: t('modal.closeFile.discardExit'),
             onClick: executeCloseFile,
             variant: 'danger',
             icon: <Trash2 size={16} />
           },
           {
-            label: 'キャンセル',
+            label: t('modal.closeFile.cancel'),
             onClick: () => setShowCloseDialog(false),
             variant: 'outline'
           }
@@ -720,21 +756,21 @@ export default function Home() {
           setEditCommentEvent(null);
         }}
         onConfirm={handleConfirmEditComment}
-        title="コメント編集"
-        label="コメント"
-        placeholder="変更の理由や目的を入力"
+        title={t('modal.comment.title')}
+        label={t('modal.comment.label')}
+        placeholder={t('modal.comment.placeholder')}
         defaultValue={editCommentEvent?.summary || ''}
-        confirmText="保存"
+        confirmText={t('modal.comment.save')}
       />
       <ConfirmModal
         isOpen={showResetConfirmModal}
         onClose={() => setShowResetConfirmModal(false)}
         onConfirm={handleConfirmReset}
-        title="履歴のリセット"
-        message="履歴を全て削除し、現在の内容をv1として保存し直しますか？&#10;（現在のエディタの内容は維持されます）"
-        confirmText="リセット"
+        title={t('modal.reset.title')}
+        message={t('modal.reset.message')}
+        confirmText={t('modal.reset.confirm')}
         variant="danger"
       />
-    </div>
+    </div >
   );
 }

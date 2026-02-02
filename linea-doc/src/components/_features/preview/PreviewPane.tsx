@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import type { Components, ExtraProps } from 'react-markdown';
+import { useLanguage } from '@/lib/LanguageContext';
 
 interface PreviewPaneProps {
     content: string;
@@ -47,6 +48,7 @@ function createComponentsWithLineNumbers(): Components {
 
 export const PreviewPane = forwardRef<PreviewPaneHandle, PreviewPaneProps>(
     function PreviewPane({ content, targetLine, onVisibleLineChange }, ref) {
+        const { t } = useLanguage();
         const containerRef = useRef<HTMLDivElement>(null);
         const isScrollingFromExternalRef = useRef(false);
         const isHoveredRef = useRef(false); // マウスがプレビュー上にあるか
@@ -104,8 +106,8 @@ export const PreviewPane = forwardRef<PreviewPaneHandle, PreviewPaneProps>(
 
                 // ハイライト演出
                 targetElement.style.transition = 'none';
-                targetElement.style.backgroundColor = 'rgba(37, 99, 235, 0.2)'; // Blue tint
-                targetElement.style.outline = '2px solid rgba(37, 99, 235, 0.5)';
+                targetElement.style.backgroundColor = 'rgba(13, 148, 136, 0.2)'; // Teal tint
+                targetElement.style.outline = '2px solid rgba(13, 148, 136, 0.5)';
                 targetElement.style.borderRadius = '2px';
 
                 // フェードアウト
@@ -170,13 +172,13 @@ export const PreviewPane = forwardRef<PreviewPaneHandle, PreviewPaneProps>(
             <div className="h-full relative group">
                 {/* Zoom Controls (Hoverで表示) */}
                 <div className="absolute top-4 right-8 flex flex-col gap-1 bg-white/90 p-1 rounded-lg shadow-md border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20 print:hidden">
-                    <button onClick={handleZoomIn} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="拡大">
+                    <button onClick={handleZoomIn} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title={t('preview.zoomIn')}>
                         <ZoomIn size={18} />
                     </button>
-                    <button onClick={handleZoomOut} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="縮小">
+                    <button onClick={handleZoomOut} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title={t('preview.zoomOut')}>
                         <ZoomOut size={18} />
                     </button>
-                    <button onClick={handleResetZoom} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title="リセット (100%)">
+                    <button onClick={handleResetZoom} className="p-1.5 hover:bg-slate-100 rounded text-slate-600 transition-colors" title={t('preview.resetZoom')}>
                         <RotateCcw size={18} />
                     </button>
                     <div className="text-[10px] text-center font-medium text-slate-500 pt-1 border-t border-slate-100">

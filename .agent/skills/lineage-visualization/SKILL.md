@@ -49,7 +49,7 @@ meta:
 
 - **Node**: 半径10pxの円。選択時は青、通常は白。
 - **Link**: グレーのストローク幅2px。
-- **Branch Indicator**: 分岐点はAmber色で区別。
+- **Branch Indicator**: ブランチ（分岐）点はAmber色で可視化。
 - **Version Label**: ノード右側に `v1`, `v2` 等を表示。
 - **Diff Label**: 選択中のバージョンと親バージョンの差分を表示。
 
