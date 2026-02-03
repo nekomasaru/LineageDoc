@@ -5,6 +5,7 @@ import { useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 
 import type * as Monaco from 'monaco-editor';
 import { computeDiff } from '@/lib/diff-utils';
 import { getAutoNumbering } from '@/lib/markdown-utils';
+import { QualityIssue } from '@/stores/qualityStore';
 
 interface MonacoWrapperProps {
   value: string;
@@ -17,10 +18,12 @@ interface MonacoWrapperProps {
   activeBase?: string;   // 未保存の比較対象 (vN)
   readOnly?: boolean;
   fontSize?: number; // エディタのフォントサイズ (px)
+  issues?: QualityIssue[]; // Lintエラー
 }
 
 export interface MonacoWrapperHandle {
   scrollToLine: (line: number) => void;
+  moveCursorTo: (line: number, column?: number) => void;
   clearDecorations: () => void;
   setValue: (value: string) => void;
   hasFocus: () => boolean;
@@ -28,7 +31,7 @@ export interface MonacoWrapperHandle {
 }
 
 export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>(
-  function MonacoWrapper({ value, onChange, onVisibleLineChange, onSave, onZoom, targetLine, compareWith, activeBase, readOnly, fontSize = 14 }, ref) {
+  function MonacoWrapper({ value, onChange, onVisibleLineChange, onSave, onZoom, targetLine, compareWith, activeBase, readOnly, fontSize = 14, issues = [] }, ref) {
     const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
     const monacoRef = useRef<typeof Monaco | null>(null);
     const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -47,8 +50,15 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
     const scrollToLine = useCallback((line: number) => {
       if (!editorRef.current) return;
       isScrollingFromExternalRef.current = true;
-      editorRef.current.revealLine(line, 0);
+      editorRef.current.revealLineInCenter(line);
       setTimeout(() => { isScrollingFromExternalRef.current = false; }, 100);
+    }, []);
+
+    const moveCursorTo = useCallback((line: number, column: number = 1) => {
+      if (!editorRef.current) return;
+      editorRef.current.setPosition({ lineNumber: line, column });
+      editorRef.current.revealLineInCenter(line);
+      editorRef.current.focus();
     }, []);
 
     const clearDecorations = useCallback(() => {
@@ -77,7 +87,7 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
       editorRef.current?.focus();
     }, []);
 
-    useImperativeHandle(ref, () => ({ scrollToLine, clearDecorations, setValue: setEditorValue, hasFocus, focus }));
+    useImperativeHandle(ref, () => ({ scrollToLine, moveCursorTo, clearDecorations, setValue: setEditorValue, hasFocus, focus }));
 
     useEffect(() => {
       if (!editorRef.current) return;
@@ -251,6 +261,37 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
       // 初回の差分表示
       updateDiffDecorations();
     }, [onVisibleLineChange, value, updateDiffDecorations]);
+
+    // Issues (Lint結果) をマーカーとして反映
+    useEffect(() => {
+      if (!editorRef.current || !monacoRef.current) return;
+
+      const editor = editorRef.current;
+      const monaco = monacoRef.current;
+      const model = editor.getModel();
+
+      if (!model) return;
+
+      const markers: Monaco.editor.IMarkerData[] = issues.map(issue => {
+        const line = issue.line || 1;
+        const lineMaxCol = model.getLineMaxColumn(line);
+
+        return {
+          startLineNumber: line,
+          startColumn: 1,
+          endLineNumber: line,
+          endColumn: lineMaxCol,
+          message: issue.message,
+          severity: issue.level === 'error' ? monaco.MarkerSeverity.Error :
+            issue.level === 'warning' ? monaco.MarkerSeverity.Warning :
+              monaco.MarkerSeverity.Info,
+          source: issue.source
+        };
+      });
+
+      monaco.editor.setModelMarkers(model, 'quality-check', markers);
+
+    }, [issues]);
 
     const handleChange: OnChange = useCallback((val) => {
       if (isSettingValueRef.current) return;

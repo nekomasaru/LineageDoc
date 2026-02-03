@@ -10,7 +10,7 @@
 
 'use client';
 
-import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { useEditorStore } from '@/stores/editorStore';
 import {
@@ -23,12 +23,18 @@ import matter from 'gray-matter';
 // BlockNoteを動的にインポート（SSR回避）
 import dynamic from 'next/dynamic';
 
+export interface BlockNoteEditorHandle {
+    focusBlockByContent: (content: string) => void;
+}
+
 interface BlockNoteEditorPaneProps {
     className?: string;
     /** 上書き表示するコンテンツ（履歴閲覧用・編集不可になる） */
     overrideContent?: string;
     /** 変更時のコールバック */
     onChange?: (markdown: string) => void;
+    /** エディタ操作用ハンドルを受け取るRef */
+    handleRef?: React.Ref<BlockNoteEditorHandle>;
 }
 
 // ローディング用コンポーネント
@@ -44,7 +50,7 @@ function BlockNoteLoading() {
 }
 
 // 実際のエディタコンポーネント（クライアントサイドのみ）
-function BlockNoteEditorInner({ className = '', overrideContent, onChange }: BlockNoteEditorPaneProps) {
+function BlockNoteEditorInner({ className = '', overrideContent, onChange, handleRef }: BlockNoteEditorPaneProps) {
     // BlockNote関連のコンポーネントを動的に保持
     const [BlockNoteComponents, setBlockNoteComponents] = useState<{
         useCreateBlockNote: any;
@@ -134,11 +140,12 @@ function BlockNoteEditorInner({ className = '', overrideContent, onChange }: Blo
             isReadOnly={isReadOnly}
             isSyncing={isSyncing}
             setIsSyncing={setIsSyncing}
+            handleRef={handleRef}
         />
     );
 }
 
-// コアエディタコンポーネント
+// SSRを無効にしてエクスポート
 function BlockNoteEditorCore({
     className,
     BlockNoteComponents,
@@ -152,6 +159,7 @@ function BlockNoteEditorCore({
     isReadOnly,
     isSyncing,
     setIsSyncing,
+    handleRef,
 }: {
     className: string;
     BlockNoteComponents: {
@@ -170,6 +178,7 @@ function BlockNoteEditorCore({
     isReadOnly: boolean;
     isSyncing: boolean;
     setIsSyncing: (syncing: boolean) => void;
+    handleRef?: React.Ref<BlockNoteEditorHandle>;
 }) {
     const {
         useCreateBlockNote,
@@ -185,6 +194,82 @@ function BlockNoteEditorCore({
     useEffect(() => {
         editorInstanceRef.current = editor;
     }, [editor, editorInstanceRef]);
+
+    // テキスト内容からブロックを特定してフォーカスする機能
+    useImperativeHandle(handleRef, () => ({
+        focusBlockByContent: (targetContent: string) => {
+            const editor = editorInstanceRef.current;
+            console.log('[BlockNote] focusBlockByContent called with:', targetContent);
+            if (!editor) {
+                console.warn('[BlockNote] Editor instance not found');
+                return;
+            }
+
+            // シンプルな正規化（空白除去など）
+            const normalize = (s: string) => s.trim().replace(/\s+/g, '');
+            const target = normalize(targetContent);
+
+            if (!target) return;
+
+            // 全ブロックを走査
+            for (const block of editor.document) {
+                // ブロックのテキスト内容を取得
+                let blockText = '';
+                if (Array.isArray(block.content)) {
+                    blockText = block.content.map((c: any) => c.text).join('');
+                } else if (typeof block.content === 'string') {
+                    blockText = block.content;
+                }
+
+                const normalizedBlock = normalize(blockText);
+
+                if (normalizedBlock.length > 0 && normalizedBlock.includes(target)) {
+                    console.log('[BlockNote] Match found! Focusing block:', block.id);
+
+                    // 1. カーソルをセット (とりあえず末尾に)
+                    editor.setTextCursorPosition(block, 'end');
+                    editor.focus();
+
+                    // 2. DOM要素を取得してスクロール (BlockNoteは通常 data-id={block.id} を持つ)
+                    setTimeout(() => {
+                        const blockElem = document.querySelector(`[data-id="${block.id}"]`) as HTMLElement;
+                        if (blockElem) {
+                            blockElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                            // 3. 確実なハイライトのためにオーバーレイを作成して被せる
+                            // エディタの再レンダリングに影響されないよう、body直下に配置
+                            const rect = blockElem.getBoundingClientRect();
+                            const overlay = document.createElement('div');
+                            overlay.style.position = 'fixed';
+                            overlay.style.top = `${rect.top}px`;
+                            overlay.style.left = `${rect.left}px`;
+                            overlay.style.width = `${rect.width}px`;
+                            overlay.style.height = `${rect.height}px`;
+                            overlay.style.backgroundColor = 'rgba(254, 249, 195, 0.5)'; // yellow-100 with opacity
+                            overlay.style.pointerEvents = 'none'; // クリック透過
+                            overlay.style.zIndex = '9999';
+                            overlay.style.transition = 'opacity 1s ease-out';
+
+                            document.body.appendChild(overlay);
+
+                            // フェードアウトして削除
+                            setTimeout(() => {
+                                overlay.style.opacity = '0';
+                                setTimeout(() => {
+                                    document.body.removeChild(overlay);
+                                }, 1000);
+                            }, 1500);
+
+                        } else {
+                            console.warn('[BlockNote] DOM element not found for block:', block.id);
+                        }
+                    }, 100); // エディタのフォーカス処理待ち (少し長めに)
+
+                    break;
+                }
+            }
+        }
+    }), [handleRef]);
 
     // 読み取り専用設定
     // 同期中(isSyncing)も強制的にReadOnlyにする（イベント発火防止）
@@ -334,7 +419,8 @@ function BlockNoteEditorCore({
 }
 
 // SSRを無効にしてエクスポート
-export const BlockNoteEditorPane = dynamic<BlockNoteEditorPaneProps>(
+// SSRを無効にしてエクスポート
+export const BlockNoteEditorPane = dynamic(
     () => Promise.resolve(BlockNoteEditorInner),
     {
         ssr: false,

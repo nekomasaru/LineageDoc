@@ -37,14 +37,45 @@ export const useQualityStore = create<QualityState>((set) => ({
     clearIssues: () => set({ issues: [] }),
     setChecking: (isChecking) => set({ isChecking }),
 
-    runValidation: (content, frontmatter) => {
+    runValidation: async (content, frontmatter) => {
         set({ isChecking: true });
 
-        // シミュレーション: 少し遅延させて実行
-        setTimeout(() => {
+        try {
             const newIssues: QualityIssue[] = [];
 
-            // 1. mdschema 相当の構造チェック (YAML)
+            // 1. Textlint API 呼び出し
+            try {
+                const response = await fetch('http://localhost:8080/api/lint', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: content }),
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Textlintの結果をQualityIssueに変換
+                    if (data.errors && Array.isArray(data.errors)) {
+                        data.errors.forEach((msg: any, index: number) => {
+                            newIssues.push({
+                                id: `textlint-${index}-${msg.line}-${msg.column}`,
+                                type: 'prose',
+                                level: msg.severity as 'error' | 'warning' | 'suggestion',
+                                message: msg.message,
+                                line: msg.line,
+                                source: 'Textlint',
+                            });
+                        });
+                    }
+                } else {
+                    console.error('Textlint API error:', response.statusText);
+                }
+            } catch (err) {
+                console.error('Textlint API connection failed:', err);
+                // 接続失敗時もプロセスを落とさない
+            }
+
+            // 2. mdschema 相当の構造チェック (YAML) - 既存ロジック維持
             if (!frontmatter.rationale || frontmatter.rationale.length < 10) {
                 newIssues.push({
                     id: 'schema-1',
@@ -66,27 +97,10 @@ export const useQualityStore = create<QualityState>((set) => ({
                 });
             }
 
-            // 2. Vale 相当の文体チェック (Regexベースの簡易版)
-            if (content.includes('等々')) {
-                newIssues.push({
-                    id: 'vale-1',
-                    type: 'prose',
-                    level: 'error',
-                    message: '「等々」は公文書では使用を避けてください。「等」に統一します。',
-                    source: 'Vale'
-                });
-            }
-            if (content.includes('したりする')) {
-                newIssues.push({
-                    id: 'vale-2',
-                    type: 'prose',
-                    level: 'warning',
-                    message: '「したりする」は曖昧な表現です。直接的な動詞の使用を検討してください。',
-                    source: 'Vale'
-                });
-            }
-
             set({ issues: newIssues, isChecking: false });
-        }, 500);
+        } catch (e) {
+            console.error('Validation failed:', e);
+            set({ isChecking: false });
+        }
     }
 }));

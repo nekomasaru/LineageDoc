@@ -1,776 +1,601 @@
+/**
+ * /v2 ページ
+ * 
+ * 新しいUXを統合したLineaDocの次期バージョン
+ * - レールナビゲーション（左端）
+ * - 2つのワークモード（執筆/出力） ※履歴タブは執筆タブに統合
+ * - Ctrl+S で履歴保存
+ * - 執筆モードで LineaPanel を常時表示し、過去バージョンを選択して閲覧・復元可能
+ * 
+ * @skill app-ux-modes
+ */
+
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { Eye, EyeOff, Save, Bot, FileText, Download, HelpCircle, X, Trash2, GitBranch } from 'lucide-react';
-import { MonacoWrapper, MonacoWrapperHandle } from '@/components/_features/editor/MonacoWrapper';
-import { PreviewPane, PreviewPaneHandle } from '@/components/_features/preview/PreviewPane';
-import { LineaPanel } from '@/components/_features/lineage/LineaPanel';
-import { AIChatPane } from '@/components/_features/ai/AIChatPane';
-import { GuideModal } from '@/components/_features/guide/GuideModal';
-import { WelcomeScreen } from '@/components/_features/welcome/WelcomeScreen';
-import { AlertDialog } from '@/components/_shared/AlertDialog';
-import { BranchCommentModal } from '@/components/_shared/BranchCommentModal';
-import { InputModal } from '@/components/_shared/InputModal';
-import { ConfirmModal } from '@/components/_shared/ConfirmModal';
-import { Logo } from '@/components/_shared/Logo';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { FileText, Save, RotateCcw, GitBranch } from 'lucide-react';
+import { useAppStore } from '@/stores/appStore';
+import { useEditorStore } from '@/stores/editorStore';
 import { useLinea } from '@/hooks/useLinea';
-import { useLanguage } from '@/lib/LanguageContext';
-import { defaultMarkdown } from '@/lib/defaultMarkdown';
+import { RailNav, NavItem } from '@/components/_shared/RailNav';
+import { WorkModeTabs } from '@/components/_shared/WorkModeTabs';
+import { Logo } from '@/components/_shared/Logo';
+import { SplitEditorLayout } from '@/components/_features/editor/SplitEditorLayout';
+import { FrontmatterForm } from '@/components/_features/editor/FrontmatterForm';
+import { LineaPanel } from '@/components/_features/lineage/LineaPanel';
+import { DocumentNavigator } from '@/components/_features/navigator/DocumentNavigator';
+import { NetworkGraph } from '@/components/_features/graph/NetworkGraph';
+import { LegalModal } from '@/components/_features/legal/LegalModal';
+import { BranchCommentModal } from '@/components/_shared/BranchCommentModal';
+import { ConfirmModal } from '@/components/_shared/ConfirmModal';
+import { InputModal } from '@/components/_shared/InputModal';
 import { LineaEvent } from '@/lib/types';
-
-type RightPaneMode = 'preview' | 'ai';
-
-export default function Home() {
-  const { t, language } = useLanguage();
-  const [markdown, setMarkdown] = useState<string>('');
-  const [displayContent, setDisplayContent] = useState('');
-  const [editorTargetLine, setEditorTargetLine] = useState<number | undefined>(undefined);
-  const [previewTargetLine, setPreviewTargetLine] = useState<number | undefined>(undefined);
-  const [showDiff, setShowDiff] = useState(false);
-  const [isSaved, setIsSaved] = useState(true);
-  const [selectedEventId, setSelectedEventId] = useState<string | undefined>(undefined);
-  const [rightPaneMode, setRightPaneMode] = useState<RightPaneMode>('preview');
-  const [showGuide, setShowGuide] = useState(false);
-  const [showCloseDialog, setShowCloseDialog] = useState(false);
-  const [isBranching, setIsBranching] = useState(false);
-
-  // Resizable Layout State
-  const [sidebarWidth, setSidebarWidth] = useState(384); // px (w-96 = 384px)
-  const [editorWidthPercent, setEditorWidthPercent] = useState(50); // %
-  const [fontSize, setFontSize] = useState(14); // px (editor font size)
-  const [treeScale, setTreeScale] = useState(1); // scale for tree panel
-  const [isResizing, setIsResizing] = useState<'sidebar' | 'editor' | null>(null);
-
-  // Branch Comment Modal State
-  const [showBranchModal, setShowBranchModal] = useState(false);
-  const [pendingBranchAction, setPendingBranchAction] = useState<{ type: 'branch' | 'restore'; event: LineaEvent } | null>(null);
-  const [branchModalTitle, setBranchModalTitle] = useState('');
-  const [editCommentEvent, setEditCommentEvent] = useState<LineaEvent | null>(null); // コメント編集対象
-  const [showEditCommentModal, setShowEditCommentModal] = useState(false); // コメント編集モーダル
-  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false); // 履歴リセット確認モーダル
-
-  const editorRef = useRef<MonacoWrapperHandle>(null);
-  const previewRef = useRef<PreviewPaneHandle>(null);
-  const lastSavedContentRef = useRef('');
-  const branchCommentRef = useRef<string>(''); // 分岐モードで使うコメント
-  const branchSourceIdRef = useRef<string | null>(null); // 分岐元のイベントID
-
-  const { events, isLoaded, addEvent, resetWithContent, clearEvents, getPreviousEvent, getEventById, updateEventSummary } = useLinea();
-  const latestEventId = events.length > 0 ? events[events.length - 1].id : undefined;
-  const latestEvent = events.length > 0 ? events[events.length - 1] : undefined;
-  const selectedEvent = selectedEventId ? getEventById(selectedEventId) : undefined;
-  const isViewingLatest = selectedEventId === undefined || selectedEventId === latestEventId;
-  const hasHistory = events.length > 0;
-
-  const currentVersion = isViewingLatest
-    ? (latestEvent?.version ?? 0)
-    : (selectedEvent?.version ?? 0);
-
-  // 親ノードのバージョン番号（差分表示用）
-  const parentVersion = (() => {
-    const event = isViewingLatest ? latestEvent : selectedEvent;
-    if (!event || !event.parentId) return 0;
-    const parent = getEventById(event.parentId);
-    return parent?.version ?? 0;
-  })();
-
-  // 初期ロード時の状態同期
-  useEffect(() => {
-    if (isLoaded && events.length > 0) {
-      const latest = events[events.length - 1];
-      const content = latest.content || '';
-      setMarkdown(content);
-      lastSavedContentRef.current = content;
-      setDisplayContent(content);
-      setSelectedEventId(latest.id);
-    }
-  }, [isLoaded, events.length]); // events全体への依存は重いが、length監視で初期同期を行う。厳密には見直しが必要だが既存ロジックを踏襲
-
-  useEffect(() => {
-    if (latestEventId && selectedEventId === undefined) {
-      setSelectedEventId(latestEventId);
-    }
-  }, [latestEventId, selectedEventId]);
-
-  const handleCreateNew = useCallback(() => {
-    const initialText = defaultMarkdown[t('lang') as keyof typeof defaultMarkdown];
-    resetWithContent(initialText, t('save.newDocument'));
-    setMarkdown(initialText);
-    setDisplayContent(initialText);
-    lastSavedContentRef.current = initialText;
-    setIsSaved(true);
-    setIsBranching(false);
-  }, [resetWithContent, t]);
-
-  const handleImportFile = useCallback((fileContent: string, filename: string) => {
-    resetWithContent(fileContent, t('save.importFile', { filename }));
-    setMarkdown(fileContent);
-    setDisplayContent(fileContent);
-    lastSavedContentRef.current = fileContent;
-    setIsSaved(true);
-    setIsBranching(false);
-  }, [resetWithContent, t]);
-
-
-
-  const handleSave = useCallback(() => {
-    const lastSaved = lastSavedContentRef.current || '';
-    if (markdown !== lastSaved) {
-      // 分岐モード時はモーダルで入力したコメントを使用
-      const summary = isBranching && branchCommentRef.current
-        ? branchCommentRef.current
-        : t('save.summary', { chars: Math.abs(markdown.length - lastSaved.length) });
-
-      // 親IDの決定: 
-      // 1. 分岐モードなら分岐元ID (branchSourceIdRef) を親にする
-      // 2. 最新を見ているなら最新ID (直線)
-      // 3. 過去を見ているならそのID (分岐)
-      const parentId = isBranching && branchSourceIdRef.current
-        ? branchSourceIdRef.current
-        : (isViewingLatest ? latestEventId : selectedEventId);
-
-      const newEvent = addEvent(markdown, 'user_edit', parentId ?? null, summary);
-      lastSavedContentRef.current = markdown;
-      setIsSaved(true);
-      setIsBranching(false);
-      branchCommentRef.current = ''; // リセット
-      branchSourceIdRef.current = null;
-      setSelectedEventId(newEvent.id);
-      setDisplayContent(markdown);
-    }
-  }, [markdown, addEvent, isViewingLatest, latestEventId, selectedEventId, isBranching, t]);
-
-  // エクスポート機能
-  const handleExport = useCallback(() => {
-    // 先頭行からファイル名を生成（禁止文字除去）
-    const lines = displayContent.split('\n');
-    const firstTextLine = lines.find(line => line.trim().length > 0) || '';
-
-    // Markdown見出し記号(#)やOS禁止文字(\/:*?"<>|)を除去
-    let safeName = firstTextLine
-      .replace(/^#+\s*/, '')
-      .replace(/[\\/:*?"<>|]/g, '')
-      .trim();
-
-    if (!safeName) safeName = 'lineage-doc';
-    // 長すぎる場合は50文字でカット
-    if (safeName.length > 50) safeName = safeName.substring(0, 50);
-
-    const filename = `${safeName}.md`;
-    const blob = new Blob([displayContent], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }, [displayContent]);
-
-  // 実際にファイルを閉じる処理
-  const executeCloseFile = useCallback(() => {
-    clearEvents();
-    setMarkdown('');
-    setDisplayContent('');
-    lastSavedContentRef.current = '';
-    setIsSaved(true);
-    setSelectedEventId(undefined);
-    setShowCloseDialog(false);
-  }, [clearEvents]);
-
-  // エクスポートして閉じる
-  const handleExportAndClose = useCallback(() => {
-    handleExport();
-    executeCloseFile();
-  }, [handleExport, executeCloseFile]);
-
-  const handleCloseFile = useCallback(() => {
-    setShowCloseDialog(true);
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        handleSave();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleSave]);
-
-  const handleContentChange = useCallback((newContent: string) => {
-    if (!isViewingLatest && !isBranching) return;
-    setMarkdown(newContent);
-    setDisplayContent(newContent);
-    setIsSaved(newContent === lastSavedContentRef.current);
-  }, [isViewingLatest, isBranching]);
-
-  const handleEditorVisibleLineChange = useCallback((line: number) => {
-    setPreviewTargetLine(line);
-  }, []);
-
-  const handlePreviewVisibleLineChange = useCallback((_line: number) => { }, []);
-
-  const toggleDiffView = useCallback(() => {
-    setShowDiff((prev) => !prev);
-  }, []);
-
-  const handleSelectEvent = useCallback((event: LineaEvent) => {
-    setSelectedEventId(event.id);
-    setIsBranching(false);
-    if (event.id === latestEventId) {
-      setDisplayContent(markdown);
-    } else {
-      setDisplayContent(event.content || '');
-    }
-  }, [latestEventId, markdown]);
-
-  const handleMakeLatest = useCallback((event: LineaEvent) => {
-    // モーダルを表示してコメントを取得
-    setPendingBranchAction({ type: 'restore', event });
-    setBranchModalTitle(t('modal.restoreBranch.title', { version: event.version ?? '?' }));
-    setShowBranchModal(true);
-  }, [t]);
-
-  const handleStartBranch = useCallback((event: LineaEvent) => {
-    // モーダルを表示してコメントを取得
-    setPendingBranchAction({ type: 'branch', event });
-    setBranchModalTitle(t('modal.createBranch.title', { version: event.version ?? '?' }));
-    setShowBranchModal(true);
-    // Ensure title is updated when modal opens (handled by rendering logic or state if needed)
-  }, [t]);
-
-  const handleBranchModalConfirm = useCallback((comment: string) => {
-    if (!pendingBranchAction) return;
-
-    const { type, event } = pendingBranchAction;
-
-    if (type === 'restore') {
-      // 復元は選択されたイベントを親として分岐を作成する
-      const content = event.content || '';
-      const newEvent = addEvent(content, 'user_edit', event.id, comment);
-      setMarkdown(content);
-      setDisplayContent(content);
-      lastSavedContentRef.current = content;
-      setIsSaved(true);
-      setIsBranching(false);
-      setSelectedEventId(newEvent.id);
-    } else if (type === 'branch') {
-      // 分岐: 作業エリアをセットして分岐モードへ
-      // コメントと分岐元IDを保存（保存時に使用）
-      branchCommentRef.current = comment;
-      branchSourceIdRef.current = event.id;
-      setMarkdown(event.content);
-      setDisplayContent(event.content);
-      lastSavedContentRef.current = event.content;
-      setIsBranching(true);
-      setIsSaved(true);
-      // 編集フォーカスを当てる
-      if (editorRef.current) {
-        editorRef.current.focus?.();
-      }
-    }
-
-    // モーダルを閉じて状態をリセット
-    setShowBranchModal(false);
-    setPendingBranchAction(null);
-  }, [pendingBranchAction, addEvent]);
-
-  const handleBranchModalClose = useCallback(() => {
-    setShowBranchModal(false);
-    setPendingBranchAction(null);
-  }, []);
-
-  const handleCancelBranch = useCallback(() => {
-    // 分岐モードをキャンセル
-    setIsBranching(false);
-    // 選択中のイベントがあれば、その内容を再表示
-    if (selectedEventId) {
-      const event = getEventById(selectedEventId);
-      if (event) {
-        setDisplayContent(event.content);
-        lastSavedContentRef.current = event.content;
-      }
-    } else if (latestEvent) {
-      // 選択中のイベントがなければ最新のイベントの内容を再表示
-      setDisplayContent(latestEvent.content);
-      lastSavedContentRef.current = latestEvent.content;
-    }
-    setIsSaved(true);
-  }, [selectedEventId, getEventById, latestEvent]);
-
-  const handleClearHistory = useCallback(() => {
-    setShowResetConfirmModal(true);
-  }, []);
-
-  const handleConfirmReset = useCallback(() => {
-    const newEvent = resetWithContent(markdown, t('save.resetHistory'));
-    lastSavedContentRef.current = markdown;
-    setIsSaved(true);
-    setSelectedEventId(newEvent.id);
-    setShowResetConfirmModal(false);
-  }, [resetWithContent, markdown, t]);
-
-  // コメント編集ハンドラ
-  const handleEditComment = useCallback((event: LineaEvent) => {
-    setEditCommentEvent(event);
-    setShowEditCommentModal(true);
-  }, []);
-
-  const handleConfirmEditComment = useCallback((newComment: string) => {
-    if (editCommentEvent) {
-      updateEventSummary(editCommentEvent.id, newComment);
-    }
-    setShowEditCommentModal(false);
-    setEditCommentEvent(null);
-  }, [editCommentEvent, updateEventSummary]);
-
-  // キーボードナビゲーション
-  useEffect(() => {
-    const handleNavigation = (e: KeyboardEvent) => {
-      if (editorRef.current?.hasFocus && typeof editorRef.current.hasFocus === 'function') {
-        if (editorRef.current.hasFocus()) return;
-      }
-
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        const sortedEvents = [...events].reverse();
-        if (sortedEvents.length === 0) return;
-
-        e.preventDefault();
-
-        const currentId = isViewingLatest && latestEventId ? latestEventId : selectedEventId;
-        const currentIndex = sortedEvents.findIndex(ev => ev.id === currentId);
-
-        if (currentIndex === -1) return;
-
-        let nextIndex = currentIndex;
-        if (e.key === 'ArrowUp') {
-          nextIndex = Math.max(0, currentIndex - 1);
-        } else if (e.key === 'ArrowDown') {
-          nextIndex = Math.min(sortedEvents.length - 1, currentIndex + 1);
-        }
-
-        if (nextIndex !== currentIndex) {
-          const nextEvent = sortedEvents[nextIndex];
-          handleSelectEvent(nextEvent);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleNavigation);
-    return () => window.removeEventListener('keydown', handleNavigation);
-  }, [events, selectedEventId, latestEventId, isViewingLatest, handleSelectEvent]);
-
-  // Resize handlers for draggable dividers
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing) return;
-
-      if (isResizing === 'sidebar') {
-        // Constrain sidebar width between 200px and 600px
-        const newWidth = Math.max(200, Math.min(600, e.clientX));
-        setSidebarWidth(newWidth);
-      } else if (isResizing === 'editor') {
-        // Calculate editor width as percentage of remaining space (after sidebar)
-        const container = document.getElementById('editor-preview-container');
-        if (container) {
-          const rect = container.getBoundingClientRect();
-          const relativeX = e.clientX - rect.left;
-          const percent = Math.max(20, Math.min(80, (relativeX / rect.width) * 100));
-          setEditorWidthPercent(percent);
-        }
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(null);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-
-    if (isResizing) {
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing]);
-
-  // Ctrl+Wheel zoom for editor and tree (scoped to each container)
-  useEffect(() => {
-    const handleWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey) return;
-
-      const target = e.target as HTMLElement;
-
-      // Check if cursor is over the editor container
-      const editorContainer = document.getElementById('editor-container');
-      if (editorContainer && editorContainer.contains(target)) {
-        e.preventDefault();
-        setFontSize(prev => {
-          const delta = e.deltaY > 0 ? -1 : 1;
-          return Math.max(10, Math.min(24, prev + delta));
-        });
-        return;
-      }
-
-      // Check if cursor is over the tree container
-      const treeContainer = document.getElementById('lineage-tree-container');
-      if (treeContainer && treeContainer.contains(target)) {
-        e.preventDefault();
-        setTreeScale(prev => {
-          const delta = e.deltaY > 0 ? -0.05 : 0.05;
-          return Math.max(0.6, Math.min(1.4, prev + delta));
-        });
-        return;
-      }
-    };
-
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    return () => window.removeEventListener('wheel', handleWheel);
-  }, []);
-
-  const compareWith = (() => {
-    if (!showDiff) return undefined;
-    // 差分表示: 親ノードとの比較（分岐元との差分を表示）
-    if (isViewingLatest && latestEventId && latestEvent) {
-      const parent = latestEvent.parentId ? getEventById(latestEvent.parentId) : null;
-      return parent?.content || '';
-    } else if (selectedEventId && selectedEvent) {
-      const parent = selectedEvent.parentId ? getEventById(selectedEvent.parentId) : null;
-      return parent?.content || '';
-    }
-    return undefined;
-  })();
-
-  const activeBase = isViewingLatest && showDiff ? latestEvent?.content : undefined;
-
-  const modeBtnClass = (isActive: boolean) =>
-    `p-1.5 rounded transition-colors ${isActive ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:bg-slate-200'
-    }`;
-
-  const handlers = {
-    closeFile: handleCloseFile,
-    exportMarkdown: handleExport,
-    save: handleSave,
-    startResizing: (e: React.MouseEvent, type: 'sidebar' | 'editor') => {
-      e.preventDefault();
-      setIsResizing(type);
-    }
-  };
-
-  const isDiffView = showDiff && compareWith !== undefined;
-
-  // コンテンツが無い（履歴が無い）場合はWelcome画面を表示
-  if (isLoaded && !hasHistory) {
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import matter from 'gray-matter';
+
+// ===== ホームビュー =====
+interface HomeViewProps {
+    onOpenLegal: () => void;
+    onStartNew: () => void;
+}
+
+function HomeView({ onOpenLegal, onStartNew }: HomeViewProps) {
     return (
-      <div className="h-screen w-full flex flex-col bg-slate-50 overflow-hidden">
-        {/* Welcome Header (Simple) */}
-        <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 z-30">
-          <div className="flex items-center gap-3">
-            <Logo size={24} />
-            <span className="text-slate-700 font-semibold">LineaDoc</span>
-          </div>
-          <button
-            onClick={() => setShowGuide(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors text-xs font-medium"
-          >
-            <HelpCircle size={16} />
-            <span className="hidden sm:inline">{t('header.help')}</span>
-          </button>
-        </header>
-
-        <div className="flex-1 overflow-y-auto scrollbar-thin">
-          <WelcomeScreen
-            onCreateNew={handleCreateNew}
-            onImportFile={handleImportFile}
-          />
-        </div>
-        <GuideModal isOpen={showGuide} onClose={() => setShowGuide(false)} />
-      </div>
-    );
-  }
-
-  // 以下は既存のエディタ画面 (hasHistory === true)
-  return (
-    <div className="h-screen w-full flex flex-col bg-slate-50 overflow-hidden">
-      {/* Header */}
-      <header className="h-12 bg-white border-b border-slate-200 flex items-center px-4 justify-between shrink-0 z-20 shadow-sm relative">
-        <div className="flex items-center gap-3">
-          <div
-            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity group"
-            onClick={handlers.closeFile}
-            title={t('header.returnHome')}
-          >
-            <Logo size={24} />
-            <span className="text-slate-800 font-bold tracking-tight group-hover:text-teal-600 transition-colors">LineaDoc</span>
-          </div>
-          <div className="h-6 w-px bg-slate-200 mx-2" />
-
-          {/* Version Badge */}
-          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium border border-slate-200 text-xs">
-            v{currentVersion}
-          </span>
-
-          {/* Status Badge */}
-          <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-colors ${isSaved
-            ? 'bg-teal-50 text-teal-700 border-teal-200'
-            : 'bg-amber-50 text-amber-700 border-amber-200'
-            }`}>
-            <div className={`w-1.5 h-1.5 rounded-full ${isSaved ? 'bg-teal-500' : 'bg-amber-500 animate-pulse'}`} />
-            {isSaved ? t('header.saved') : t('header.unsaved')}
-          </span>
-
-          {/* Branch Mode Indicator */}
-          {isBranching && branchCommentRef.current && (
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border bg-orange-50 text-orange-700 border-orange-200">
-              <GitBranch size={12} />
-              {t('header.branch', { branch: branchCommentRef.current.length > 20 ? branchCommentRef.current.slice(0, 20) + '…' : branchCommentRef.current })}
-            </span>
-          )}
-
-          {/* Diff Mode Indicator */}
-          {isDiffView && parentVersion !== undefined && (
-            <div className="flex gap-2 ml-2">
-              <div className="bg-teal-600/10 text-teal-700 text-xs px-2 py-0.5 rounded border border-teal-200 flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-teal-500"></div>
-                {t('header.diff', { version: parentVersion })}
-              </div>
-              {isViewingLatest && !isSaved && (
-                <div className="bg-green-600/10 text-green-700 text-xs px-2 py-0.5 rounded border border-green-200 flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                  {t('header.unsavedChanges')}
+        <div className="h-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-cyan-100">
+            <div className="text-center max-w-lg px-8">
+                <div className="flex items-center justify-center mb-8">
+                    <Logo size={120} showText={false} className="drop-shadow-xl" />
                 </div>
-              )}
+                <p className="text-slate-600 mb-10 text-lg">
+                    AI-Powered Document Lineage OS
+                </p>
+
+                <div className="space-y-3">
+                    <button
+                        onClick={onStartNew}
+                        className="w-full py-3 px-6 bg-cyan-600 text-white rounded-xl font-medium hover:bg-cyan-700 transition-colors shadow-sm"
+                    >
+                        新規ドキュメントを作成
+                    </button>
+                    <button
+                        disabled
+                        className="w-full py-3 px-6 bg-slate-100 text-slate-400 rounded-xl font-medium cursor-not-allowed"
+                    >
+                        ファイルをインポート（将来実装）
+                    </button>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-slate-200">
+                    <div className="flex items-center justify-center gap-4 text-xs text-slate-400">
+                        <span>JP / EN 切替（将来）</span>
+                        <span>•</span>
+                        <button
+                            onClick={onOpenLegal}
+                            className="hover:text-cyan-600 hover:underline"
+                        >
+                            ライセンス情報
+                        </button>
+                    </div>
+                </div>
             </div>
-          )}
         </div>
+    );
+}
 
-        <div className="flex items-center gap-2">
-          {/* Close File Button */}
-          <button
-            onClick={handlers.closeFile}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors text-xs font-medium"
-            title="Close file"
-          >
-            <X size={16} />
-          </button>
+// ===== 出力ビュー =====
+type TemplateId = 'official' | 'contract' | 'minutes' | 'plain';
 
-          <div className="h-4 w-px bg-slate-300 mx-1" />
+const TEMPLATES: { id: TemplateId; name: string; icon: string; className: string }[] = [
+    { id: 'official', name: '公文書', icon: '📄', className: 'font-serif' },
+    { id: 'contract', name: '契約書', icon: '📝', className: 'font-serif text-sm' },
+    { id: 'minutes', name: '議事録', icon: '📋', className: 'font-sans text-sm' },
+    { id: 'plain', name: 'シンプル', icon: '📃', className: 'font-sans' },
+];
 
-          {/* Export Button */}
-          <button
-            onClick={handlers.exportMarkdown}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors text-xs font-medium"
-            title="Export as Markdown"
-          >
-            <Download size={16} />
-            <span className="hidden sm:inline">{t('header.export')}</span>
-          </button>
+function ProofView() {
+    const { markdown } = useEditorStore();
+    const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>('official');
+    const currentTemplate = TEMPLATES.find(t => t.id === selectedTemplate) || TEMPLATES[0];
 
-          <div className="h-4 w-px bg-slate-300 mx-1" />
+    const handlePrint = () => window.print();
 
-          {/* Help Button */}
-          <button
-            onClick={() => setShowGuide(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors text-xs font-medium"
-            title="View help guide"
-          >
-            <HelpCircle size={16} />
-            <span className="hidden sm:inline">{t('header.help')}</span>
-          </button>
+    return (
+        <div className="h-full flex flex-col">
+            <div className="h-14 bg-gradient-to-r from-cyan-600 to-cyan-700 flex items-center justify-between px-6 shrink-0">
+                <div>
+                    <h2 className="text-white font-semibold">出力プレビュー</h2>
+                    <p className="text-cyan-100 text-xs">印刷・PDF出力前の確認</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handlePrint}
+                        className="flex items-center gap-2 px-4 py-2 bg-white text-cyan-700 text-sm font-medium rounded-lg hover:bg-cyan-50 transition-colors"
+                    >
+                        印刷 / PDF
+                    </button>
+                </div>
+            </div>
 
-          <div className="h-4 w-px bg-slate-300 mx-1" />
+            <div className="flex-1 flex overflow-hidden">
+                <div className="w-64 border-r border-slate-200 bg-slate-50 p-4 flex-shrink-0 overflow-auto">
+                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                        テンプレート
+                    </h3>
+                    <div className="space-y-2">
+                        {TEMPLATES.map((t) => (
+                            <button
+                                key={t.id}
+                                onClick={() => setSelectedTemplate(t.id)}
+                                className={`
+                                    w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left
+                                    transition-colors duration-150
+                                    ${selectedTemplate === t.id
+                                        ? 'bg-cyan-100 text-cyan-700 ring-1 ring-cyan-300'
+                                        : 'hover:bg-slate-100 text-slate-600'
+                                    }
+                                `}
+                            >
+                                <span className="text-2xl">{t.icon}</span>
+                                <span className="text-sm font-medium">{t.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
-          <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-            <button
-              onClick={() => {
-                setShowDiff(true);
-                setRightPaneMode('preview');
-              }}
-              className={modeBtnClass(rightPaneMode === 'preview' && showDiff)}
-              title="Diff + Preview"
-            >
-              <Eye size={16} />
-            </button>
-            <button
-              onClick={() => {
-                setShowDiff(false);
-                setRightPaneMode('preview');
-              }}
-              className={modeBtnClass(rightPaneMode === 'preview' && !showDiff)}
-              title="Preview only"
-            >
-              <EyeOff size={16} />
-            </button>
-            <button
-              onClick={() => setRightPaneMode('ai')}
-              className={modeBtnClass(rightPaneMode === 'ai')}
-              title="AI Assistant"
-            >
-              <Bot size={16} />
-            </button>
-          </div>
-
-          <button
-            onClick={handlers.save}
-            className={`flex items-center gap-1.5 px-4 py-1.5 rounded shadow-sm text-xs font-bold transition-all ${isSaved
-              ? 'bg-slate-100 text-slate-400 cursor-default'
-              : 'bg-teal-600 text-white hover:bg-teal-700 hover:shadow-md hover:-translate-y-0.5'
-              }`}
-            disabled={isSaved}
-            title="Save (Ctrl+S)"
-          >
-            <Save size={14} />
-            {t('header.save')}
-          </button>
+                <div className="flex-1 bg-slate-200 p-8 overflow-auto print:p-0 print:bg-white">
+                    <div
+                        className="bg-white shadow-xl mx-auto print:shadow-none"
+                        style={{ width: '210mm', minHeight: '297mm', maxWidth: '100%' }}
+                    >
+                        <article className={`p-16 ${currentTemplate.className}`}>
+                            <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                    h1: ({ children }) => (
+                                        <h1 className="text-2xl font-bold text-center mb-8 border-b-2 border-slate-300 pb-4">
+                                            {children}
+                                        </h1>
+                                    ),
+                                    h2: ({ children }) => (
+                                        <h2 className="text-xl font-bold mt-8 mb-4">{children}</h2>
+                                    ),
+                                    p: ({ children }) => (
+                                        <p className="mb-4 text-justify leading-relaxed">{children}</p>
+                                    ),
+                                }}
+                            >
+                                {markdown}
+                            </ReactMarkdown>
+                        </article>
+                    </div>
+                </div>
+            </div>
         </div>
-      </header >
+    );
+}
 
-      {/* Main Content */}
-      < div className="flex-1 flex overflow-hidden relative" >
-        {/* Left: History */}
-        < div
-          style={{ width: sidebarWidth }
-          }
-          className="border-r border-slate-200 bg-white shrink-0 z-10 flex flex-col"
-        >
-          <LineaPanel
-            events={events}
-            selectedEventId={selectedEventId}
-            isBranching={isBranching}
-            treeScale={treeScale}
-            onSelectEvent={handleSelectEvent}
-            onClearHistory={handleClearHistory}
-            onMakeLatest={handleMakeLatest}
-            onStartBranch={handleStartBranch}
-            onCancelBranch={handleCancelBranch}
-            onEditComment={handleEditComment}
-          />
-        </div >
+// ===== メインページ =====
+export default function V2Page() {
+    const { workMode, setWorkMode, currentDocumentTitle, currentDocumentId } = useAppStore();
+    const { markdown, isDirty, markAsSaved, resetDocument, setMarkdown, savedMarkdown } = useEditorStore();
 
-        {/* Resize Handle: Sidebar <-> Editor */}
-        < div
-          className="w-1 bg-slate-200 hover:bg-teal-600 cursor-col-resize transition-colors shrink-0"
-          onMouseDown={(e) => handlers.startResizing(e, 'sidebar')}
-        />
+    // Linea (履歴管理) - ドキュメントIDを渡す
+    const {
+        events,
+        isLoaded,
+        addEvent,
+        clearEvents,
+        resetWithContent,
+        getEventById,
+        getLatestEvent,
+        updateEventSummary,
+    } = useLinea(currentDocumentId);
 
-        {/* Center + Right: Editor & Preview Container */}
-        <div id="editor-preview-container" className="flex-1 flex min-w-0">
-          {/* Center: Editor */}
-          <div
-            id="editor-container"
-            style={{ width: `${editorWidthPercent}%` }}
-            className="border-r border-slate-300 relative min-w-0 bg-white shrink-0"
-          >
-            <MonacoWrapper
-              ref={editorRef}
-              value={displayContent}
-              onChange={handleContentChange}
-              onVisibleLineChange={handleEditorVisibleLineChange}
-              onSave={handleSave}
-              onZoom={(delta) => setFontSize(prev => Math.max(10, Math.min(24, prev + delta)))}
-              targetLine={editorTargetLine}
-              readOnly={!isViewingLatest && !isBranching}
-              compareWith={compareWith}
-              activeBase={activeBase}
-              fontSize={fontSize}
-            />
-          </div>
+    const [activeNav, setActiveNav] = useState<NavItem>('documents');
+    const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
 
-          {/* Resize Handle: Editor <-> Preview */}
-          <div
-            className="w-1 bg-slate-200 hover:bg-teal-600 cursor-col-resize transition-colors shrink-0"
-            onMouseDown={(e) => handlers.startResizing(e, 'editor')}
-          />
+    // 履歴関連の状態
+    const [selectedEventId, setSelectedEventId] = useState<string | undefined>(undefined);
+    const [isBranching, setIsBranching] = useState(false);
 
-          {/* Right: Preview or AI */}
-          <div className="flex-1 min-w-0 bg-white">
-            {rightPaneMode === 'preview' ? (
-              <PreviewPane
-                ref={previewRef}
-                content={displayContent}
-                onVisibleLineChange={handlePreviewVisibleLineChange}
-                targetLine={previewTargetLine}
-              />
-            ) : (
-              <AIChatPane
-                currentContent={markdown}
-                onApplyContent={handleContentChange}
-              />
-            )}
-          </div>
-        </div>
-      </div >
+    // 現在表示中のコンテンツ（履歴閲覧用）
+    const [historyViewContent, setHistoryViewContent] = useState<string | null>(null);
 
-      <AlertDialog
-        isOpen={showCloseDialog}
-        onClose={() => setShowCloseDialog(false)}
-        title={t('modal.closeFile.title')}
-        description={
-          <div className="space-y-2">
-            <p>{t('modal.closeFile.desc')}</p>
-            <p className="text-[11px] text-slate-400 font-medium italic">
-              {t('modal.closeFile.recommend')}
-            </p>
-          </div>
+    // モーダル状態
+    const [showBranchModal, setShowBranchModal] = useState(false);
+    const [pendingBranchAction, setPendingBranchAction] = useState<{ type: 'branch' | 'restore'; event: LineaEvent } | null>(null);
+    const [branchModalTitle, setBranchModalTitle] = useState('');
+    const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+    const [showEditCommentModal, setShowEditCommentModal] = useState(false);
+    const [editCommentEvent, setEditCommentEvent] = useState<LineaEvent | null>(null);
+
+    // Refs
+    const branchCommentRef = useRef<string>('');
+    const branchSourceIdRef = useRef<string | null>(null);
+
+    const latestEventId = events.length > 0 ? events[events.length - 1].id : undefined;
+    const latestEvent = getLatestEvent();
+    const selectedEvent = selectedEventId ? getEventById(selectedEventId) : undefined;
+
+    // 最新を見ているかどうか
+    const isViewingLatest = selectedEventId === undefined || selectedEventId === latestEventId;
+
+    // ヘッダー表示用のタイトル (メタデータのタイトルを優先)
+    const displayTitle = useMemo(() => {
+        try {
+            const { data } = matter(markdown);
+            return data.title || currentDocumentTitle;
+        } catch (e) {
+            return currentDocumentTitle;
         }
-        actions={[
-          {
-            label: t('modal.closeFile.exportExit'),
-            onClick: handleExportAndClose,
-            variant: 'primary',
-            icon: <Download size={16} />
-          },
-          {
-            label: t('modal.closeFile.discardExit'),
-            onClick: executeCloseFile,
-            variant: 'danger',
-            icon: <Trash2 size={16} />
-          },
-          {
-            label: t('modal.closeFile.cancel'),
-            onClick: () => setShowCloseDialog(false),
-            variant: 'outline'
-          }
-        ]}
-      />
-      <GuideModal isOpen={showGuide} onClose={() => setShowGuide(false)} />
-      <BranchCommentModal
-        isOpen={showBranchModal}
-        onClose={handleBranchModalClose}
-        onConfirm={handleBranchModalConfirm}
-        title={branchModalTitle}
-      />
-      <InputModal
-        isOpen={showEditCommentModal}
-        onClose={() => {
-          setShowEditCommentModal(false);
-          setEditCommentEvent(null);
-        }}
-        onConfirm={handleConfirmEditComment}
-        title={t('modal.comment.title')}
-        label={t('modal.comment.label')}
-        placeholder={t('modal.comment.placeholder')}
-        defaultValue={editCommentEvent?.summary || ''}
-        confirmText={t('modal.comment.save')}
-      />
-      <ConfirmModal
-        isOpen={showResetConfirmModal}
-        onClose={() => setShowResetConfirmModal(false)}
-        onConfirm={handleConfirmReset}
-        title={t('modal.reset.title')}
-        message={t('modal.reset.message')}
-        confirmText={t('modal.reset.confirm')}
-        variant="danger"
-      />
-    </div >
-  );
+    }, [markdown, currentDocumentTitle]);
+
+    // エディタの強制再マウント用キー
+    // 履歴モード(readonly)と編集モード(editable)の切り替え、
+    // および履歴IDの変更時にキーを変更してコンポーネントを再作成させる
+    const editorKey = `${historyViewContent ? 'readonly' : 'editable'}-${selectedEventId ?? 'initial'}`;
+
+    // 初期ロード時の同期
+    useEffect(() => {
+        if (isLoaded && events.length > 0) {
+            const latest = events[events.length - 1];
+            setMarkdown(latest.content || '');
+            markAsSaved();
+            setSelectedEventId(latest.id);
+            setHistoryViewContent(null);
+        }
+    }, [isLoaded]);
+
+    // ===== 保存処理 =====
+    const handleSave = useCallback(() => {
+        if (!isDirty) return;
+
+        const parentId = isBranching && branchSourceIdRef.current
+            ? branchSourceIdRef.current
+            : latestEventId ?? null;
+
+        const summary = isBranching && branchCommentRef.current
+            ? branchCommentRef.current
+            : `${Math.abs(markdown.length - savedMarkdown.length)}文字の変更`;
+
+        const newEvent = addEvent(markdown, 'user_edit', parentId, summary);
+
+        markAsSaved();
+        setIsBranching(false);
+        branchCommentRef.current = '';
+        branchSourceIdRef.current = null;
+        setSelectedEventId(newEvent.id);
+        setHistoryViewContent(null);
+
+        console.log('[V2] Saved as version', newEvent.version);
+    }, [isDirty, markdown, savedMarkdown, addEvent, markAsSaved, latestEventId, isBranching]);
+
+    // ===== キーボードショートカット =====
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 's':
+                        e.preventDefault();
+                        handleSave();
+                        break;
+                    case '1':
+                        e.preventDefault();
+                        setWorkMode('write');
+                        break;
+                    case '2':
+                        e.preventDefault();
+                        setWorkMode('proof');
+                        break;
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handleSave, setWorkMode]);
+
+    // ===== ナビゲーション =====
+    const handleNavClick = useCallback((item: NavItem) => {
+        if (item === 'settings') {
+            alert('設定は将来実装予定です');
+            return;
+        }
+        if (item === 'search') {
+            alert('横断検索は将来実装予定です');
+            return;
+        }
+        setActiveNav(item);
+    }, []);
+    // ===== 新規ドキュメント作成 =====
+    const handleStartNew = useCallback(() => {
+        const initialContent = `# 見出し1
+
+ここに文書を入力してください。
+`;
+        resetDocument(initialContent);
+        const newEvent = resetWithContent(initialContent, '新規ドキュメント作成');
+        setSelectedEventId(newEvent.id);
+        setHistoryViewContent(null);
+        setActiveNav('documents');
+        setWorkMode('write');
+    }, [resetDocument, resetWithContent, setWorkMode]);
+
+
+
+    // ===== 履歴操作 =====
+    const handleSelectEvent = useCallback((event: LineaEvent) => {
+        setSelectedEventId(event.id);
+        setIsBranching(false);
+
+        if (event.id === latestEventId) {
+            setHistoryViewContent(null);
+        } else {
+            setHistoryViewContent(event.content || '');
+        }
+    }, [latestEventId]);
+
+    const handleClearHistory = useCallback(() => {
+        setShowResetConfirmModal(true);
+    }, []);
+
+    const handleConfirmReset = useCallback(() => {
+        const newEvent = resetWithContent(markdown, '履歴のリセット');
+        setSelectedEventId(newEvent.id);
+        historyViewContent && setHistoryViewContent(null);
+        setShowResetConfirmModal(false);
+    }, [resetWithContent, markdown, historyViewContent]);
+
+    const handleMakeLatest = useCallback((event: LineaEvent) => {
+        setPendingBranchAction({ type: 'restore', event });
+        setBranchModalTitle(`v${event.version ?? '?'} を復元`);
+        setShowBranchModal(true);
+    }, []);
+
+    const handleStartBranch = useCallback((event: LineaEvent) => {
+        setPendingBranchAction({ type: 'branch', event });
+        setBranchModalTitle(`v${event.version ?? '?'} から分岐`);
+        setShowBranchModal(true);
+    }, []);
+
+    const handleBranchModalConfirm = useCallback((comment: string) => {
+        if (!pendingBranchAction) return;
+
+        const { type, event } = pendingBranchAction;
+
+        if (type === 'restore') {
+            const content = event.content || '';
+            const newEvent = addEvent(content, 'user_edit', event.id, comment);
+            setMarkdown(content);
+            markAsSaved();
+            setIsBranching(false);
+            setSelectedEventId(newEvent.id);
+            setHistoryViewContent(null);
+        } else if (type === 'branch') {
+            branchCommentRef.current = comment;
+            branchSourceIdRef.current = event.id;
+
+            setMarkdown(event.content || '');
+            setHistoryViewContent(null);
+            setIsBranching(true);
+            setWorkMode('write');
+        }
+
+        setShowBranchModal(false);
+        setPendingBranchAction(null);
+    }, [pendingBranchAction, addEvent, setMarkdown, markAsSaved, setWorkMode]);
+
+    const handleCancelBranch = useCallback(() => {
+        setIsBranching(false);
+        branchCommentRef.current = '';
+        branchSourceIdRef.current = null;
+        if (latestEvent) {
+            setMarkdown(latestEvent.content || '');
+            setHistoryViewContent(null);
+            setSelectedEventId(latestEvent.id);
+        }
+    }, [latestEvent, setMarkdown]);
+
+    const handleEditComment = useCallback((event: LineaEvent) => {
+        setEditCommentEvent(event);
+        setShowEditCommentModal(true);
+    }, []);
+
+    const handleConfirmEditComment = useCallback((newComment: string) => {
+        if (editCommentEvent) {
+            updateEventSummary(editCommentEvent.id, newComment);
+        }
+        setShowEditCommentModal(false);
+        setEditCommentEvent(null);
+    }, [editCommentEvent, updateEventSummary]);
+
+    // ===== ホーム画面 =====
+    if (activeNav === 'home') {
+        return (
+            <div className="h-screen flex bg-slate-50">
+                <RailNav activeItem={activeNav} onItemClick={handleNavClick} />
+                <div className="flex-1 relative">
+                    <HomeView
+                        onOpenLegal={() => setIsLegalModalOpen(true)}
+                        onStartNew={handleStartNew}
+                    />
+                    <LegalModal isOpen={isLegalModalOpen} onClose={() => setIsLegalModalOpen(false)} />
+                </div>
+            </div>
+        );
+    }
+
+    // ===== ドキュメントビュー =====
+    return (
+        <div className="h-screen flex bg-slate-50">
+            <RailNav activeItem={activeNav} onItemClick={handleNavClick} />
+
+            <div className="flex-1 flex flex-col overflow-hidden">
+                {/* ヘッダー */}
+                <header className="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <Logo size={20} className="text-cyan-600" />
+                        <span className="text-sm font-bold text-slate-700 truncate max-w-xs">
+                            {displayTitle}
+                        </span>
+                        {events.length > 0 && (
+                            <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                v{latestEvent?.version ?? 0}
+                            </span>
+                        )}
+                        {isDirty && !historyViewContent && (
+                            <span className="text-amber-500 text-xs flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                                未保存
+                            </span>
+                        )}
+                        {isBranching && (
+                            <span className="text-orange-500 text-xs flex items-center gap-1 bg-orange-50 px-2 py-0.5 rounded">
+                                <GitBranch className="w-3 h-3" />
+                                分岐編集中
+                            </span>
+                        )}
+                        {historyViewContent && (
+                            <span className="text-cyan-600 text-xs flex items-center gap-1 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-100">
+                                過去バージョン閲覧中 (v{selectedEvent?.version})
+                            </span>
+                        )}
+                    </div>
+
+                    <WorkModeTabs />
+
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => resetDocument()}
+                            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-700"
+                            title="リセット"
+                        >
+                            <RotateCcw className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={!isDirty || !!historyViewContent}
+                            className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${isDirty && !historyViewContent
+                                ? 'bg-cyan-600 text-white hover:bg-cyan-700'
+                                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                }`}
+                            title="保存 (Ctrl+S)"
+                        >
+                            <Save className="w-4 h-4" />
+                            保存
+                        </button>
+                    </div>
+                </header>
+
+                {/* メインコンテンツ */}
+                <main className="flex-1 overflow-hidden relative">
+                    {workMode === 'write' && activeNav !== 'graph' && (
+                        <div className="h-full flex">
+                            {/* 左サイドバーパネル: モードによって切り替 */}
+                            <div className="flex border-r border-slate-200">
+                                {activeNav === 'documents' && <div className="w-72 bg-white h-full"><DocumentNavigator /></div>}
+                                {activeNav === 'metadata' && <FrontmatterForm />}
+                                {activeNav === 'history' && (
+                                    <div className="w-72 bg-white h-full">
+                                        <LineaPanel
+                                            events={events}
+                                            selectedEventId={selectedEventId}
+                                            isBranching={isBranching}
+                                            onSelectEvent={handleSelectEvent}
+                                            onClearHistory={handleClearHistory}
+                                            onMakeLatest={handleMakeLatest}
+                                            onStartBranch={handleStartBranch}
+                                            onCancelBranch={handleCancelBranch}
+                                            onEditComment={handleEditComment}
+                                        />
+                                    </div>
+                                )}
+                                {activeNav === 'search' && (
+                                    <div className="w-72 bg-white h-full p-4 text-slate-500 text-sm italic border-r border-slate-200">横断検索パネル（開発予定）</div>
+                                )}
+                            </div>
+                            {/* 右: エディタ */}
+                            <div className="flex-1 overflow-hidden">
+                                <SplitEditorLayout
+                                    editorKey={editorKey} // 追加
+                                    overrideContent={historyViewContent || undefined}
+                                    savedMarkdown={historyViewContent
+                                        ? undefined
+                                        : savedMarkdown
+                                    }
+                                    compareWith={(() => {
+                                        let sourceId: string | null | undefined = undefined;
+
+                                        if (historyViewContent) {
+                                            // 過去閲覧中: 選択中のイベントの親と比較
+                                            sourceId = selectedEvent?.parentId;
+                                        } else if (isBranching && branchSourceIdRef.current) {
+                                            // 分岐編集中: 分岐元と比較
+                                            sourceId = branchSourceIdRef.current;
+                                        } else {
+                                            // 最新編集中: 最新イベントの親と比較 (青Diff用)
+                                            sourceId = latestEvent?.parentId;
+                                        }
+
+                                        return sourceId ? getEventById(sourceId)?.content : undefined;
+                                    })()}
+                                    onSave={handleSave}
+                                />
+                            </div>
+                        </div>
+                    )}
+                    {/* グラフモード: フルエリア表示 */}
+                    {workMode === 'write' && activeNav === 'graph' && (
+                        <div className="h-full flex">
+                            {/* 左: ドキュメント一覧（クリック時の詳細表示用） */}
+                            <div className="w-72 bg-white border-r border-slate-200 h-full shrink-0">
+                                <DocumentNavigator />
+                            </div>
+                            {/* 右: ナレッジグラフ（フルエリア） */}
+                            <div className="flex-1 h-full">
+                                <NetworkGraph />
+                            </div>
+                        </div>
+                    )}
+                    {workMode === 'proof' && <ProofView />}
+                    <LegalModal isOpen={isLegalModalOpen} onClose={() => setIsLegalModalOpen(false)} />
+                </main>
+
+                {/* フッター */}
+                <footer className="h-6 bg-slate-800 text-slate-400 text-xs flex items-center px-4 gap-6">
+                    <span>Mode: {workMode}</span>
+                    <span>History: {events.length}</span>
+                    <span className="hidden sm:inline">Ctrl+S: Save</span>
+                </footer>
+            </div>
+
+            {/* モーダル群 */}
+            <BranchCommentModal
+                isOpen={showBranchModal}
+                onClose={() => { setShowBranchModal(false); setPendingBranchAction(null); }}
+                onConfirm={handleBranchModalConfirm}
+                title={branchModalTitle}
+            />
+            <ConfirmModal
+                isOpen={showResetConfirmModal}
+                onClose={() => setShowResetConfirmModal(false)}
+                onConfirm={handleConfirmReset}
+                title="履歴をリセット"
+                message="現在の内容を保持したまま、履歴をv1にリセットします。この操作は取り消せません。"
+                confirmText="リセット"
+                variant="danger"
+            />
+            <InputModal
+                isOpen={showEditCommentModal}
+                onClose={() => { setShowEditCommentModal(false); setEditCommentEvent(null); }}
+                onConfirm={handleConfirmEditComment}
+                title="コメントを編集"
+                label="コメント"
+                placeholder="変更内容のメモ"
+                defaultValue={editCommentEvent?.summary || ''}
+                confirmText="保存"
+            />
+        </div>
+    );
 }

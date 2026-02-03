@@ -10,7 +10,11 @@ import { useState } from 'react';
 import { AlertTriangle, Info, AlertCircle, ChevronUp, ChevronDown, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useQualityStore, QualityIssue } from '@/stores/qualityStore';
 
-export function QualityPanel() {
+interface QualityPanelProps {
+    onIssueClick?: (issue: QualityIssue) => void;
+}
+
+export function QualityPanel({ onIssueClick }: QualityPanelProps) {
     const { issues, isChecking } = useQualityStore();
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -77,8 +81,9 @@ export function QualityPanel() {
                         {issues.map((issue) => (
                             <div
                                 key={issue.id}
+                                onClick={() => onIssueClick?.(issue)}
                                 className={`
-                                    flex items-start gap-3 p-2 rounded-md text-sm border-l-4
+                                    flex items-start gap-3 p-2 rounded-md text-sm border-l-4 cursor-pointer hover:opacity-80 transition-opacity
                                     ${issue.level === 'error' ? 'bg-red-50 border-red-500 text-red-800' :
                                         issue.level === 'warning' ? 'bg-amber-50 border-amber-500 text-amber-800' :
                                             'bg-blue-50 border-blue-500 text-blue-800'}

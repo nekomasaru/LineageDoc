@@ -16,7 +16,7 @@ import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { Eye, Edit3 } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
 import { MonacoWrapper, MonacoWrapperHandle } from './MonacoWrapper';
-import { BlockNoteEditorPane } from './BlockNoteEditorPane';
+import { BlockNoteEditorPane, BlockNoteEditorHandle } from './BlockNoteEditorPane';
 import { EditorModeSwitcher } from './EditorModeSwitcher';
 import { PreviewPane } from '../preview/PreviewPane';
 import { QualityPanel } from '../quality/QualityPanel';
@@ -55,6 +55,7 @@ export function SplitEditorLayout({
     const { markdown, mode, setMarkdown } = useEditorStore();
     const [mobileView, setMobileView] = useState<MobileView>('editor');
     const monacoRef = useRef<MonacoWrapperHandle>(null);
+    const blockNoteRef = useRef<BlockNoteEditorHandle>(null);
 
     // overrideContentがある合はそれを使用、なければストアのmarkdown
     const fullMarkdown = overrideContent !== undefined ? overrideContent : markdown;
@@ -113,8 +114,8 @@ export function SplitEditorLayout({
     };
 
     // 品質チェックの自動実行 (デバウンス処理)
-    const { runValidation } = useQualityStore();
-    const [debouncedMarkdown] = useDebounce(markdown, 1000);
+    const { runValidation, issues } = useQualityStore();
+    const [debouncedMarkdown] = useDebounce(markdown, 2000);
 
     useEffect(() => {
         if (!isReadOnly) {
@@ -186,6 +187,7 @@ export function SplitEditorLayout({
                     <div className="flex-1 bg-white">
                         <BlockNoteEditorPane
                             key={editorKey}
+                            handleRef={blockNoteRef}
                             className="h-full"
                             overrideContent={isReadOnly ? effectiveContent : undefined}
                             onChange={handleEditorChange}
@@ -210,6 +212,7 @@ export function SplitEditorLayout({
                                 compareWith={compareWith}
                                 activeBase={savedMarkdown}
                                 readOnly={isReadOnly}
+                                issues={issues}
                             />
                         </div>
 
@@ -227,7 +230,49 @@ export function SplitEditorLayout({
             </div>
 
             {/* 品質パネル (ガバナンス) */}
-            <QualityPanel />
+            <QualityPanel
+                onIssueClick={(issue) => {
+                    console.log('[SplitEditorLayout] Issue clicked:', issue);
+                    if (!issue.line) {
+                        console.log('[SplitEditorLayout] Issue has no line number');
+                        return;
+                    }
+
+                    if (mode === 'code') {
+                        // Monaco: 行番号で直接ジャンプ
+                        if (monacoRef.current) {
+                            monacoRef.current.moveCursorTo(issue.line);
+                        }
+                    } else {
+                        // Rich (BlockNote): 行の内容を取得して検索・移動
+                        console.log('[SplitEditorLayout] Mode is rich. blockNoteRef:', blockNoteRef.current);
+                        console.log('[SplitEditorLayout] fullMarkdown length:', fullMarkdown?.length);
+
+                        if (blockNoteRef.current && fullMarkdown) {
+                            const lines = fullMarkdown.split('\n');
+                            const targetLineIndex = issue.line - 1;
+                            console.log('[SplitEditorLayout] Target line index:', targetLineIndex);
+
+                            if (targetLineIndex >= 0 && targetLineIndex < lines.length) {
+                                const lineContent = lines[targetLineIndex];
+                                console.log('[SplitEditorLayout] Line content:', lineContent);
+
+                                // Frontmatterの行などはBlockNoteに存在しないので、
+                                // ヒットしない可能性があるが、focusBlockByContent側で無視されるだけなのでOK
+                                if (lineContent.trim()) {
+                                    blockNoteRef.current.focusBlockByContent(lineContent);
+                                } else {
+                                    console.log('[SplitEditorLayout] Line content is empty/whitespace');
+                                }
+                            } else {
+                                console.log('[SplitEditorLayout] Target line index out of bounds');
+                            }
+                        } else {
+                            console.warn('[SplitEditorLayout] blockNoteRef or fullMarkdown is missing');
+                        }
+                    }
+                }}
+            />
         </div>
     );
 }
