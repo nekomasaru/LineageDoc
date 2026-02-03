@@ -74,7 +74,7 @@ export function FrontmatterForm() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 border-r border-slate-200 w-72 shrink-0">
+        <div className="flex flex-col h-full bg-slate-50 border-r border-slate-200 w-full shrink-0">
             {/* ヘッダー */}
             <div className="p-4 border-b border-slate-200 bg-white shrink-0">
                 <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">

@@ -6,6 +6,7 @@
  */
 
 import { create } from 'zustand';
+import { v4 as uuidv4 } from 'uuid';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import matter from 'gray-matter';
 
@@ -51,7 +52,7 @@ export const useDocumentStore = create<DocumentState>()(
             searchQuery: '',
 
             addDocument: (title, initialContent = '') => {
-                const id = crypto.randomUUID();
+                const id = uuidv4();
                 const now = new Date().toISOString();
                 // 初期コンテンツにフロントマターを含める
                 // デフォルトでは「無題のドキュメント」プロジェクトなし

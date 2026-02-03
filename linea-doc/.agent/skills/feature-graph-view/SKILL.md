@@ -60,11 +60,26 @@ LineageDoc内の「Knowledge Network（水平方向のつながり）」を可�
   - 左サイドバー: ドキュメント詳細/リスト (`DocumentNavigator`)
   - メインエリア: グラフ (`NetworkGraph`)
 
-## 3. ページ統合 (`src/app/v2/page.tsx`)
+## 3. ページ統合 (`src/app/page.tsx`)
 
-- `RailNav` に「グラフ」アイコンを追加
-- `activeNav === 'graph'` の時、専用のフルスクリーンレイアウトを表示
-- エディタエリア (`SplitEditorLayout`) は非表示にする
+- `RailNav` に「グラフ」アイコン (`Share2`) を追加
+- Layout Integration:
+  - グラフもメインのリサイズパネル内に配置する (`PanelGroup` 内の右パネルとして)。
+  - 左サイドバーは `DocumentNavigator` を表示（エディタ時と共有）。
+  - 右パネルで `SplitEditorLayout` と `NetworkGraph` を切り替える。
+  - これにより、グラフ表示時もサイドバーのリサイズが可能になる。
+
+```tsx
+<PanelGroup>
+  <Panel id="sidebar">
+     <DocumentNavigator />
+  </Panel>
+  <ResizeHandle />
+  <Panel>
+     {activeNav === 'graph' ? <NetworkGraph /> : <SplitEditorLayout />}
+  </Panel>
+</PanelGroup>
+```
 
 # ファイル構成
 

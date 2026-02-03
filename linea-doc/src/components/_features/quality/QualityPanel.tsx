@@ -16,7 +16,7 @@ interface QualityPanelProps {
 
 export function QualityPanel({ onIssueClick }: QualityPanelProps) {
     const { issues, isChecking } = useQualityStore();
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(true);
 
     const errorCount = issues.filter(i => i.level === 'error').length;
     const warningCount = issues.filter(i => i.level === 'warning').length;
@@ -36,10 +36,7 @@ export function QualityPanel({ onIssueClick }: QualityPanelProps) {
     return (
         <div className={`bg-white border-t border-slate-200 transition-all duration-300 ${isExpanded ? 'h-48' : 'h-8'}`}>
             {/* ヘッダー（概要） */}
-            <div
-                className="h-8 flex items-center px-4 justify-between cursor-pointer hover:bg-slate-50"
-                onClick={() => setIsExpanded(!isExpanded)}
-            >
+            <div className="h-8 flex items-center px-4 justify-between bg-white shrink-0">
                 <div className="flex items-center gap-4 text-xs font-semibold">
                     <span className="text-slate-500 uppercase flex items-center gap-1.5">
                         <ShieldCheck className="w-3.5 h-3.5 text-cyan-600" />
@@ -53,25 +50,33 @@ export function QualityPanel({ onIssueClick }: QualityPanelProps) {
                             {errorCount > 0 && (
                                 <span className="flex items-center gap-1 text-red-600">
                                     <AlertCircle className="w-3.5 h-3.5" />
-                                    {errorCount} エラー
+                                    {errorCount}
                                 </span>
                             )}
                             {warningCount > 0 && (
                                 <span className="flex items-center gap-1 text-amber-600">
                                     <AlertTriangle className="w-3.5 h-3.5" />
-                                    {warningCount} 警告
+                                    {warningCount}
                                 </span>
                             )}
                             {suggestionCount > 0 && (
                                 <span className="flex items-center gap-1 text-blue-600">
                                     <Info className="w-3.5 h-3.5" />
-                                    {suggestionCount} 提案
+                                    {suggestionCount}
                                 </span>
                             )}
                         </div>
                     )}
                 </div>
-                {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronUp className="w-4 h-4 text-slate-400" />}
+
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="p-1 hover:bg-slate-100 rounded"
+                    >
+                        {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronUp className="w-4 h-4 text-slate-400" />}
+                    </button>
+                </div>
             </div>
 
             {/* 詳細リスト */}
@@ -83,7 +88,7 @@ export function QualityPanel({ onIssueClick }: QualityPanelProps) {
                                 key={issue.id}
                                 onClick={() => onIssueClick?.(issue)}
                                 className={`
-                                    flex items-start gap-3 p-2 rounded-md text-sm border-l-4 cursor-pointer hover:opacity-80 transition-opacity
+                                    flex items-start gap-3 p-2 rounded-md text-sm cursor-pointer hover:opacity-80 transition-opacity border-l-4
                                     ${issue.level === 'error' ? 'bg-red-50 border-red-500 text-red-800' :
                                         issue.level === 'warning' ? 'bg-amber-50 border-amber-500 text-amber-800' :
                                             'bg-blue-50 border-blue-500 text-blue-800'}

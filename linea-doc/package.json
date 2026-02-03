@@ -26,10 +26,12 @@
     "react-dom": "19.2.3",
     "react-force-graph-2d": "^1.29.0",
     "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^4.5.9",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "unist-util-visit": "^5.1.0",
     "use-debounce": "^10.1.0",
+    "uuid": "^13.0.0",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
@@ -39,6 +41,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
     "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",

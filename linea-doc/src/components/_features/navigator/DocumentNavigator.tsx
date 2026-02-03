@@ -62,7 +62,8 @@ export function DocumentNavigator() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 border-r border-slate-200 w-72 shrink-0">
+        // Force hydration sync
+        <div className="flex flex-col h-full bg-slate-50 border-r border-slate-200 w-full shrink-0">
             {/* 上部: 検索 & アクティブフィルタ */}
             <div className="p-3 border-b border-slate-200 bg-white space-y-3">
                 {/* 検索バー */}

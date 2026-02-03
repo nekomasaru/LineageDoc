@@ -178,7 +178,7 @@ function ProofView() {
 }
 
 // ===== メインページ =====
-export default function V2Page() {
+export default function DebugReplicaPage() {
     const { workMode, setWorkMode, currentDocumentTitle, currentDocumentId } = useAppStore();
     const { markdown, isDirty, markAsSaved, resetDocument, setMarkdown, savedMarkdown } = useEditorStore();
 
@@ -492,89 +492,80 @@ export default function V2Page() {
 
                 {/* メインコンテンツ */}
                 <main className="flex-1 overflow-hidden relative">
-                    {workMode === 'write' && (
-                        <PanelGroup orientation="horizontal" className="h-full w-full overflow-visible">
-                            {/* 左サイドバーパネル: モードによって切り替 */}
-                            <Panel
-                                id="sidebar-panel-main"
-                                defaultSize={260}
-                                minSize={150}
-                                collapsible
-                                className="bg-white flex flex-col"
-                            >
-                                <div className="h-full flex flex-col overflow-hidden">
-                                    {/* パネルヘッダー: ズームボタン */}
-                                    <div className="h-8 border-b border-slate-100 flex items-center justify-between px-2 bg-slate-50/50 shrink-0">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                            {(activeNav === 'documents' || activeNav === 'graph') ? 'Explorer' :
-                                                activeNav === 'history' ? 'History' :
-                                                    activeNav === 'metadata' ? 'Metadata' : 'Panel'}
-                                        </span>
-                                    </div>
-                                    <div className="flex-1 overflow-auto">
-                                        {(activeNav === 'documents' || activeNav === 'graph') && <DocumentNavigator />}
-                                        {activeNav === 'metadata' && <FrontmatterForm />}
-                                        {activeNav === 'history' && (
-                                            <LineaPanel
-                                                events={events}
-                                                selectedEventId={selectedEventId}
-                                                isBranching={isBranching}
-                                                onSelectEvent={handleSelectEvent}
-                                                onClearHistory={handleClearHistory}
-                                                onMakeLatest={handleMakeLatest}
-                                                onStartBranch={handleStartBranch}
-                                                onCancelBranch={handleCancelBranch}
-                                                onEditComment={handleEditComment}
-                                            />
-                                        )}
-                                        {activeNav === 'search' && (
-                                            <div className="p-4 text-slate-500 text-sm italic">横断検索パネル（開発予定）</div>
-                                        )}
-                                    </div>
+                    {/* Simplified for debugging - Removed conditionals and siblings */}
+                    <PanelGroup orientation="horizontal" className="h-full w-full overflow-visible">
+                        {/* 左サイドバーパネル */}
+                        <Panel
+                            id="sidebar-panel"
+                            defaultSize={20}
+                            minSize={10}
+                            collapsible
+                            className="bg-white flex flex-col border-r border-slate-200"
+                        >
+                            <div className="h-full flex flex-col overflow-hidden">
+                                {/* パネルヘッダー: ズームボタン */}
+                                <div className="h-8 border-b border-slate-100 flex items-center justify-between px-2 bg-slate-50/50 shrink-0">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                        {activeNav === 'documents' ? 'Explorer' :
+                                            activeNav === 'history' ? 'History' :
+                                                activeNav === 'metadata' ? 'Metadata' : 'Panel'}
+                                    </span>
                                 </div>
-                            </Panel>
+                                <div className="flex-1 overflow-auto">
+                                    {activeNav === 'documents' && <DocumentNavigator />}
+                                    {activeNav === 'metadata' && <FrontmatterForm />}
+                                    {activeNav === 'history' && (
+                                        <LineaPanel
+                                            events={events}
+                                            selectedEventId={selectedEventId}
+                                            isBranching={isBranching}
+                                            onSelectEvent={handleSelectEvent}
+                                            onClearHistory={handleClearHistory}
+                                            onMakeLatest={handleMakeLatest}
+                                            onStartBranch={handleStartBranch}
+                                            onCancelBranch={handleCancelBranch}
+                                            onEditComment={handleEditComment}
+                                        />
+                                    )}
+                                    {activeNav === 'search' && (
+                                        <div className="p-4 text-slate-500 text-sm italic">横断検索パネル（開発予定）</div>
+                                    )}
+                                </div>
+                            </div>
+                        </Panel>
 
-                            {/* リサイズハンドル */}
-                            <ResizeHandle id="sidebar-resize-handle" style={{ flex: '0 0 auto', width: '8px', position: 'relative', zIndex: 50 }} />
+                        {/* リサイズハンドル */}
+                        <ResizeHandle id="sidebar-resize-handle" style={{ flex: '0 0 auto', width: '8px', position: 'relative', zIndex: 50 }} />
 
-                            {/* 右: エディタ または グラフ */}
-                            <Panel id="editor-panel" className="overflow-hidden">
-                                {activeNav === 'graph' ? (
-                                    <div className="h-full w-full bg-slate-50">
-                                        <NetworkGraph />
-                                    </div>
-                                ) : (
-                                    <SplitEditorLayout
-                                        editorKey={editorKey}
-                                        overrideContent={historyViewContent || undefined}
-                                        savedMarkdown={historyViewContent
-                                            ? undefined
-                                            : savedMarkdown
-                                        }
-                                        compareWith={(() => {
-                                            let sourceId: string | null | undefined = undefined;
+                        {/* 右: エディタ */}
+                        <Panel id="editor-panel" className="overflow-hidden">
+                            <SplitEditorLayout
+                                editorKey={editorKey}
+                                overrideContent={historyViewContent || undefined}
+                                savedMarkdown={historyViewContent
+                                    ? undefined
+                                    : savedMarkdown
+                                }
+                                compareWith={(() => {
+                                    let sourceId: string | null | undefined = undefined;
 
-                                            if (historyViewContent) {
-                                                // 過去閲覧中: 選択中のイベントの親と比較
-                                                sourceId = selectedEvent?.parentId;
-                                            } else if (isBranching && branchSourceIdRef.current) {
-                                                // 分岐編集中: 分岐元と比較
-                                                sourceId = branchSourceIdRef.current;
-                                            } else {
-                                                // 最新編集中: 最新イベントの親と比較 (青Diff用)
-                                                sourceId = latestEvent?.parentId;
-                                            }
+                                    if (historyViewContent) {
+                                        // 過去閲覧中: 選択中のイベントの親と比較
+                                        sourceId = selectedEvent?.parentId;
+                                    } else if (isBranching && branchSourceIdRef.current) {
+                                        // 分岐編集中: 分岐元と比較
+                                        sourceId = branchSourceIdRef.current;
+                                    } else {
+                                        // 最新編集中: 最新イベントの親と比較 (青Diff用)
+                                        sourceId = latestEvent?.parentId;
+                                    }
 
-                                            return sourceId ? getEventById(sourceId)?.content : undefined;
-                                        })()}
-                                        onSave={handleSave}
-                                    />
-                                )}
-                            </Panel>
-                        </PanelGroup>
-                    )}
-                    {workMode === 'proof' && <ProofView />}
-                    <LegalModal isOpen={isLegalModalOpen} onClose={() => setIsLegalModalOpen(false)} />
+                                    return sourceId ? getEventById(sourceId)?.content : undefined;
+                                })()}
+                                onSave={handleSave}
+                            />
+                        </Panel>
+                    </PanelGroup>
                 </main>
 
                 {/* フッター */}

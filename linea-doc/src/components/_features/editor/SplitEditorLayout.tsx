@@ -15,6 +15,8 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { Eye, Edit3 } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
+import { Group as PanelGroup, Panel, Separator } from 'react-resizable-panels';
+import { ResizeHandle } from '@/components/_shared/ResizeHandle';
 import { MonacoWrapper, MonacoWrapperHandle } from './MonacoWrapper';
 import { BlockNoteEditorPane, BlockNoteEditorHandle } from './BlockNoteEditorPane';
 import { EditorModeSwitcher } from './EditorModeSwitcher';
@@ -138,6 +140,14 @@ export function SplitEditorLayout({
         }
     };
 
+    // ズームロジック一時停止 (ライブラリバージョン不整合のため)
+    // const [isEditorZoomed, setIsEditorZoomed] = useState(false);
+    // const [isQualityZoomed, setIsQualityZoomed] = useState(false);
+    // const editorPanelRef = useRef<any>(null);
+    // const qualityPanelRef = useRef<any>(null);
+
+    // Zoom toggles removed for now
+
     return (
         <div className={`flex flex-col h-full ${className}`}>
             {/* ヘッダー: モード切替 */}
@@ -179,100 +189,102 @@ export function SplitEditorLayout({
                 </div>
             )}
 
-            {/* メインエリア */}
-            <div className="flex-1 flex overflow-hidden">
-                {mode === 'rich' ? (
-                    // リッチモード: BlockNoteエディタのみ（全画面）
-                    // key属性により、ID変更時(履歴切替時)に完全に再作成される
-                    <div className="flex-1 bg-white">
-                        <BlockNoteEditorPane
-                            key={editorKey}
-                            handleRef={blockNoteRef}
-                            className="h-full"
-                            overrideContent={isReadOnly ? effectiveContent : undefined}
-                            onChange={handleEditorChange}
+            {/* メインエリアと品質パネルを垂直方向に分割 */}
+            <PanelGroup orientation="vertical" className="flex-1 overflow-hidden">
+                <Panel
+                    defaultSize={80}
+                    minSize={20}
+                    className="flex flex-col relative overflow-hidden"
+                >
+                    {/* エディタズームボタン (Richモード時など) - 一時非表示 */}
+                    {/* <div className="absolute right-4 top-2 z-10 opacity-0 hover:opacity-100 transition-opacity">...</div> */}
+
+                    <div className="flex-1 flex overflow-hidden">
+                        {mode === 'rich' ? (
+                            // リッチモード: BlockNoteエディタのみ（全画面）
+                            <div className="flex-1 bg-white">
+                                <BlockNoteEditorPane
+                                    key={editorKey}
+                                    handleRef={blockNoteRef}
+                                    className="h-full"
+                                    overrideContent={isReadOnly ? effectiveContent : undefined}
+                                    onChange={handleEditorChange}
+                                />
+                            </div>
+                        ) : (
+                            // コードモード: Monaco + プレビュー（左右分割）
+                            <PanelGroup orientation="horizontal" className="flex-1 overflow-hidden">
+                                <Panel
+                                    defaultSize={50}
+                                    minSize={10}
+                                    className={`
+                                        border-r border-slate-200 bg-white
+                                        ${mobileView === 'editor' ? 'flex-1' : 'hidden md:block'}
+                                    `}
+                                >
+                                    <MonacoWrapper
+                                        key={editorKey}
+                                        ref={monacoRef}
+                                        value={monacoValue}
+                                        onChange={isReadOnly ? () => { } : handleMonacoChange}
+                                        onSave={handleInternalSave}
+                                        compareWith={compareWith}
+                                        activeBase={savedMarkdown}
+                                        readOnly={isReadOnly}
+                                        issues={issues}
+                                    />
+                                </Panel>
+
+                                <Separator className="hidden md:flex w-2 -ml-1 z-50 bg-transparent hover:bg-cyan-400 transition-colors cursor-col-resize group items-center justify-center">
+                                    <div className="w-px h-8 bg-slate-300 group-hover:bg-cyan-100 transition-colors" />
+                                </Separator>
+
+                                <Panel
+                                    defaultSize={50}
+                                    minSize={10}
+                                    className={`
+                                        bg-slate-100
+                                        ${mobileView === 'preview' ? 'flex-1' : 'hidden md:block'}
+                                    `}
+                                >
+                                    <PreviewPane content={effectiveContent} />
+                                </Panel>
+                            </PanelGroup>
+                        )}
+                    </div>
+                </Panel>
+
+                <ResizeHandle direction="vertical" />
+
+                <Panel
+                    defaultSize={20}
+                    minSize={3.5} // 1行(h-8)分を残せる最小サイズ
+                    className="bg-white flex flex-col"
+                >
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                        <QualityPanel
+                            onIssueClick={(issue) => {
+                                // ... (既存のクリック処理)
+                                if (mode === 'code') {
+                                    if (monacoRef.current && typeof issue.line === 'number') {
+                                        monacoRef.current.moveCursorTo(issue.line);
+                                    }
+                                } else {
+                                    // Rich (BlockNote): 行の内容を取得して検索・移動
+                                    if (blockNoteRef.current && fullMarkdown && typeof issue.line === 'number') {
+                                        const lines = fullMarkdown.split('\n');
+                                        const targetLineIndex = issue.line - 1;
+                                        if (targetLineIndex >= 0 && targetLineIndex < lines.length) {
+                                            const lineContent = lines[targetLineIndex];
+                                            if (lineContent.trim()) blockNoteRef.current.focusBlockByContent(lineContent);
+                                        }
+                                    }
+                                }
+                            }}
                         />
                     </div>
-                ) : (
-                    // コードモード: Monaco + プレビュー（左右分割）
-                    <>
-                        {/* Monaco エディタ（Diff表示・自動採番対応） */}
-                        <div
-                            className={`
-                md:w-1/2 md:border-r border-slate-200 bg-white
-                ${mobileView === 'editor' ? 'flex-1' : 'hidden md:block'}
-              `}
-                        >
-                            <MonacoWrapper
-                                key={editorKey}
-                                ref={monacoRef}
-                                value={monacoValue} // 補正済みの値を渡す
-                                onChange={isReadOnly ? () => { } : handleMonacoChange} // 読み取り専用時は更新を無視
-                                onSave={handleInternalSave}
-                                compareWith={compareWith}
-                                activeBase={savedMarkdown}
-                                readOnly={isReadOnly}
-                                issues={issues}
-                            />
-                        </div>
-
-                        {/* プレビュー */}
-                        <div
-                            className={`
-                md:w-1/2 bg-slate-100
-                ${mobileView === 'preview' ? 'flex-1' : 'hidden md:block'}
-              `}
-                        >
-                            <PreviewPane content={effectiveContent} /> {/* プレビューは正しいMarkdownとして処理させる */}
-                        </div>
-                    </>
-                )}
-            </div>
-
-            {/* 品質パネル (ガバナンス) */}
-            <QualityPanel
-                onIssueClick={(issue) => {
-                    console.log('[SplitEditorLayout] Issue clicked:', issue);
-                    if (!issue.line) {
-                        console.log('[SplitEditorLayout] Issue has no line number');
-                        return;
-                    }
-
-                    if (mode === 'code') {
-                        // Monaco: 行番号で直接ジャンプ
-                        if (monacoRef.current) {
-                            monacoRef.current.moveCursorTo(issue.line);
-                        }
-                    } else {
-                        // Rich (BlockNote): 行の内容を取得して検索・移動
-                        console.log('[SplitEditorLayout] Mode is rich. blockNoteRef:', blockNoteRef.current);
-                        console.log('[SplitEditorLayout] fullMarkdown length:', fullMarkdown?.length);
-
-                        if (blockNoteRef.current && fullMarkdown) {
-                            const lines = fullMarkdown.split('\n');
-                            const targetLineIndex = issue.line - 1;
-                            console.log('[SplitEditorLayout] Target line index:', targetLineIndex);
-
-                            if (targetLineIndex >= 0 && targetLineIndex < lines.length) {
-                                const lineContent = lines[targetLineIndex];
-                                console.log('[SplitEditorLayout] Line content:', lineContent);
-
-                                // Frontmatterの行などはBlockNoteに存在しないので、
-                                // ヒットしない可能性があるが、focusBlockByContent側で無視されるだけなのでOK
-                                if (lineContent.trim()) {
-                                    blockNoteRef.current.focusBlockByContent(lineContent);
-                                } else {
-                                    console.log('[SplitEditorLayout] Line content is empty/whitespace');
-                                }
-                            } else {
-                                console.log('[SplitEditorLayout] Target line index out of bounds');
-                            }
-                        } else {
-                            console.warn('[SplitEditorLayout] blockNoteRef or fullMarkdown is missing');
-                        }
-                    }
-                }}
-            />
-        </div>
+                </Panel>
+            </PanelGroup >
+        </div >
     );
 }

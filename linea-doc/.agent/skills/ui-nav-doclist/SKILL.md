@@ -279,6 +279,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 - **全件取得のパフォーマンス問題**: 大量の文書がある場合はページネーションを実装。
 - **削除確認のスキップ**: 必ずConfirmModalを表示。
 - **選択中文書の削除後の状態未処理**: `currentDocumentId`をnullにリセット。
+- **固定幅の指定**: 親コンポーネントが `ResizablePanel` であるため、`w-72` などの固定幅を指定してはならない。必ず `w-full` を使用すること。
 
 # 完了条件
 

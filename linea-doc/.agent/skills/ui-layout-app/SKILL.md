@@ -14,104 +14,99 @@ meta:
 # このスキルでやること
 
 アプリケーション全体のレイアウト（シェル）を構築する。
-サイドバー（文書一覧）とメインエリア（エディタ）を持つ2カラムレイアウトを実装する。
+`react-resizable-panels` を使用して、ユーザーが自由に幅を調整できる3カラム（または2カラム）レイアウトを実装する。
 
 # 設計思想
 
 ## レイアウト構成
 
-┌──────────────────────────────────────────────────────────┐
-│  Header（ロゴ、ユーザーメニュー、モード切替）             │
-├────┬────────────┬────────────────────────────────────────┤
-│ R  │            │                                        │
-│ a  │ Linea      │              Main Area                 │
-│ i  │ Panel      │                                        │
-│ l  │ (History)  │  ┌──────────────────────────────────┐  │
-│ N  │            │  │  SplitEditorLayout               │  │
-│ a  │            │  │  (Editor + Live Diff)            │  │
-│ v  │            │  └──────────────────────────────────┘  │
-│    │            │                                        │
-└────┴────────────┴────────────────────────────────────────┘
+```
+┌────┬──────────────┬─┬────────────────────────────────────┐
+│    │              │ │                                    │
+│ R  │              │R│                                    │
+│ a  │  Sidebar     │e│           Main Area                │
+│ i  │  (Panel)     │s│           (Panel)                  │
+│ l  │              │i│                                    │
+│ N  │  - Documents │z│  ┌──────────────────────────────┐  │
+│ a  │  - Metadata  │e│  │  SplitEditorLayout           │  │
+│ v  │  - History   │ │  │  (Editor / Diff / Graph)     │  │
+│    │              │ │  └──────────────────────────────┘  │
+│    │              │ │                                    │
+└────┴──────────────┴─┴────────────────────────────────────┘
 ```
 
-## レスポンシブ対応
+## レスポンシブ & リサイズ仕様
 
-| 画面幅 | サイドバー |
-|--------|-----------|
-| `lg` (1024px+) | 常時表示（240px固定） |
-| `md` (768px-1023px) | 折りたたみ可能 |
-| `< md` | ハンバーガーメニュー |
+- **ライブラリ**: `react-resizable-panels` を使用。
+- **構成**:
+  - **RailNav**: 左端固定 (48px)。
+  - **Sidebar Panel**: リサイズ可能 (default: 25-30%, min: 15%)。
+  - **ResizeHandle**: ドラッグ可能な境界線。
+  - **Main Panel**: 残りの領域すべて。
+- **永続化**: `localStorage` にパネルサイズを保存し、次回起動時に復元する。
+  - パネルID: `sidebar-panel-main` (バージョン管理などでキャッシュリセット可能にする)
 
-# 作成するファイル
+# 作成・修正するファイル
 
-## `src/components/_layout/AppShell.tsx`
+## `src/app/page.tsx` (Layout Root)
+
+メインページ (`page.tsx`) 自体がレイアウト機能を持つ。
+`PanelGroup`, `Panel`, `ResizeHandle` を組み合わせて構築する。
 
 ```tsx
-'use client';
+<div className="h-screen flex bg-slate-50">
+  <RailNav />
+  
+  <div className="flex-1 flex flex-col overflow-hidden">
+    <header /> {/* Header */}
+    
+    <main className="flex-1 overflow-hidden relative">
+      <PanelGroup orientation="horizontal">
+        
+        {/* Sidebar Panel */}
+        <Panel id="sidebar-panel-main" defaultSize={25} minSize={15} collapsible>
+           {/* DocumentNavigator / FrontmatterForm / LineaPanel */}
+           {/* ※中身のコンポーネントは w-full でなければならない (w-72固定などは禁止) */}
+        </Panel>
 
-import { useState } from 'react';
-import { Menu, X } from 'lucide-react';
-import { Logo } from '@/components/_shared/Logo';
-import { Sidebar } from './Sidebar';
-import { UserMenu } from './UserMenu';
+        <ResizeHandle />
 
-interface AppShellProps {
-  children: React.ReactNode;
-}
+        {/* Main Panel */}
+        <Panel>
+           {/* Editor / Graph */}
+        </Panel>
 
-export function AppShell({ children }: AppShellProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  return (
-    <div className="h-screen flex flex-col bg-slate-50">
-      {/* Header */}
-      <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 flex-shrink-0">
-        {/* Left: ハンバーガー + ロゴ */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden p-2 text-slate-500 hover:text-slate-700"
-          >
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-          <Logo className="h-8" />
-          <span className="font-semibold text-slate-800">LineaDoc</span>
-        </div>
-
-        {/* Right: ユーザーメニュー */}
-        <UserMenu />
-      </header>
-
-      {/* Body */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <aside
-          className={`
-            w-60 bg-white border-r border-slate-200 flex-shrink-0
-            lg:block
-            ${sidebarOpen ? 'block absolute inset-y-14 left-0 z-30' : 'hidden'}
-          `}
-        >
-          <Sidebar onClose={() => setSidebarOpen(false)} />
-        </aside>
-
-        {/* Overlay for mobile */}
-        {sidebarOpen && (
-          <div
-            className="lg:hidden fixed inset-0 bg-black/20 z-20"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        {/* Main Content */}
-        <main className="flex-1 overflow-hidden">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
-}
+      </PanelGroup>
+    </main>
+  </div>
+</div>
 ```
+
+## `src/components/_shared/ResizeHandle.tsx`
+
+`react-resizable-panels` の `Separator` をラップした視覚的ハンドル。
+
+```tsx
+export const ResizeHandle = forwardRef<HTMLDivElement, ResizeHandleProps>(
+    ({ className = '', id, direction = 'horizontal', ...props }, ref) => {
+        return (
+            <Separator
+                id={id}
+                elementRef={ref} // 重要: リサイズ動作に必須
+                {...props}
+                className="..."
+            >
+                {/* ハンドルの見た目 */}
+            </Separator>
+        );
+    }
+);
+```
+
+# 禁止事項
+
+- **子コンポーネントでの固定幅指定**: サイドバーに入れるコンポーネント（DocumentNavigatorなど）に `w-72` などの固定幅を指定してはならない。必ず `w-full` を使用し、親パネルのサイズに従わせる。
+- **IDの頻繁な変更**: パネルIDが変わるとサイズ設定がリセットされるため、意図的なリセット以外では変更しない。
 
 ## `src/components/_layout/Sidebar.tsx`
 

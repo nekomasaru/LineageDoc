@@ -7,6 +7,8 @@
 - **Styling**: Tailwind CSS 4
 - **Editor**: `@monaco-editor/react` ^4.7.0
 - **Markdown**: `react-markdown` ^10.1.0, `remark-gfm` ^4.0.1
+- **Layout**: `react-resizable-panels` ^4.5.9
+- **Graph**: `react-force-graph-2d` ^1.29.0
 - **Icons**: `lucide-react`
 
 ## Application Identity & Localization

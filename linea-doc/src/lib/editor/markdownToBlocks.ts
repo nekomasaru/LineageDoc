@@ -7,6 +7,7 @@
  */
 
 import type { BlockNoteEditor, Block } from '@blocknote/core';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * MarkdownをBlockNoteブロックに変換する
@@ -41,7 +42,7 @@ export async function markdownToBlocks(
         // エラー時はフォールバック：プレーンテキストとして扱う
         return [
             {
-                id: crypto.randomUUID(),
+                id: uuidv4(),
                 type: 'paragraph',
                 props: {
                     textColor: 'default',
