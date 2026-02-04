@@ -22,7 +22,7 @@ interface LeftSidebarProps {
 }
 
 export function LeftSidebar({ className = '' }: LeftSidebarProps) {
-    const { setViewMode, setCurrentDocument } = useAppStore();
+    const { setViewMode, setCurrentDocument, setActiveModal } = useAppStore();
     const { activeProjectId, projects } = useProjectStore();
     const { documents } = useDocumentStore();
 
@@ -98,7 +98,10 @@ export function LeftSidebar({ className = '' }: LeftSidebarProps) {
                             <span className="truncate">{doc.title || '無題のドキュメント'}</span>
                         </button>
                     ))}
-                    <button className="w-full flex items-center gap-2 px-2 py-1 text-sm text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors text-left mt-2">
+                    <button
+                        onClick={() => setActiveModal('create-document')}
+                        className="w-full flex items-center gap-2 px-2 py-1 text-sm text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors text-left mt-2"
+                    >
                         <Plus className="w-4 h-4" />
                         <span>新規ドキュメント</span>
                     </button>

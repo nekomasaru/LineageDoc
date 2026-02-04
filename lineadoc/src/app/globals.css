@@ -1,12 +1,10 @@
 @import "tailwindcss";
+/* Force rebuild to clear stale cache */
 
 :root {
   --background: #f8fafc;
-  /* slate-50 */
   --foreground: #0f172a;
-  /* slate-900 */
 }
-
 
 body {
   background: var(--background);
@@ -99,35 +97,27 @@ body {
   margin: 2em 0;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Monaco Editor Diff Decorations                                             */
-/* -------------------------------------------------------------------------- */
-
-/* 追加行の背景 (Monacoのテーマより優先させるため!importantを使用) */
+/* Monaco Editor Diff Decorations */
 .diff-added-line {
   background-color: rgba(59, 130, 246, 0.1) !important;
 }
 
-/* 追加行の左端バー (Line Decorations) */
 .diff-added-line-margin {
   background-color: #3b82f6 !important;
   width: 5px !important;
   margin-left: 2px;
 }
 
-/* 削除箇所の左端バー */
 .diff-removed-line-margin {
   background-color: #f97316 !important;
   width: 5px !important;
   margin-left: 2px;
 }
 
-/* 削除行の背景 */
 .diff-removed-line {
   background-color: rgba(249, 115, 22, 0.1) !important;
 }
 
-/* 削除マーカー (Glyph Margin) */
 .diff-removed-glyph {
   background-color: #f97316 !important;
   width: 100% !important;
@@ -146,10 +136,7 @@ body {
   height: 100%;
 }
 
-/* -------------------------------------------------------------------------- */
-/* 未保存の編集（Active Edit）: 緑色                                          */
-/* -------------------------------------------------------------------------- */
-
+/* Active Edit Decorations */
 .diff-active-line {
   background-color: rgba(34, 197, 94, 0.15) !important;
 }
@@ -160,7 +147,6 @@ body {
   margin-left: 2px;
 }
 
-/* 未保存の削除: 黄色（オレンジ）*/
 .diff-active-removed-line {
   background-color: rgba(234, 179, 8, 0.15) !important;
 }
@@ -170,5 +156,3 @@ body {
   width: 5px !important;
   margin-left: 2px;
 }
-
-/* -------------------------------------------------------------------------- */

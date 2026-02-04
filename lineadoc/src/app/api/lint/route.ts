@@ -33,83 +33,49 @@ export async function POST(request: NextRequest): Promise<NextResponse<LintRespo
             }, { status: 400 });
         }
 
-        // 一時ディレクトリとファイルを作成
-        const tempDir = join(process.cwd(), '.temp-lint');
-        const tempFile = join(tempDir, `${randomUUID()}.md`);
-
-        // ディレクトリ作成
-        await mkdir(tempDir, { recursive: true });
-
-        // 一時ファイルに書き込み
-        await writeFile(tempFile, content, 'utf-8');
-
+        // --- Textlint API Call ONLY ---
+        let textlintIssues: LintIssue[] = [];
         try {
-            // Vale を実行 (JSON出力)
-            // 注意: windows環境ではパスの扱いに注意が必要だが、execでコマンドとして渡すため基本はOK
-            const { stdout, stderr } = await execAsync(
-                `vale --output=JSON "${tempFile}"`,
-                { cwd: process.cwd() }
-            );
-
-            // JSON解析
-            // valeはエラーがあってもstdoutに出力するが、コマンド自体のexit codeが1になる場合がある
-            // execはexit codeが0以外だとエラーをスローする
-            // なのでここは到達しない可能性がある -> catchブロックでstdoutを確認する必要がある
-
-            const valeOutput = JSON.parse(stdout || '{}');
-            const fileIssues = valeOutput[tempFile] || [];
-
-            // フォーマット変換
-            const issues: LintIssue[] = fileIssues.map((issue: any) => ({
-                line: issue.Line,
-                column: issue.Span?.[0] || 1,
-                severity: mapSeverity(issue.Severity),
-                message: issue.Message,
-                rule: issue.Check,
-            }));
-
-            return NextResponse.json({
-                success: true,
-                issues,
+            const textlintRes = await fetch('http://localhost:8080/api/lint', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: content }),
+                signal: AbortSignal.timeout(5000)
             });
 
-        } catch (execError: any) {
-            // Valeがエラー(指摘事項あり)でexit code 1を返した場合、stdoutに結果が入っている可能性がある
-            if (execError.stdout) {
-                try {
-                    const valeOutput = JSON.parse(execError.stdout || '{}');
-                    const fileIssues = valeOutput[tempFile] || [];
-
-                    const issues: LintIssue[] = fileIssues.map((issue: any) => ({
-                        line: issue.Line,
-                        column: issue.Span?.[0] || 1,
-                        severity: mapSeverity(issue.Severity),
-                        message: issue.Message,
-                        rule: issue.Check,
+            if (textlintRes.ok) {
+                const data = await textlintRes.json();
+                if (data.errors) {
+                    textlintIssues = data.errors.map((err: any) => ({
+                        line: err.line,
+                        column: err.column,
+                        severity: err.severity,
+                        message: err.message,
+                        rule: `textlint:${err.ruleId}`,
                     }));
-
-                    return NextResponse.json({
-                        success: true,
-                        issues,
-                    });
-                } catch (parseError) {
-                    console.error('Failed to parse Vale output from error:', parseError);
                 }
+            } else {
+                console.warn('Textlint API returned non-OK status:', textlintRes.status);
             }
-
-            console.error('Lint execution error:', execError);
+        } catch (err) {
+            console.error('Failed to call textlint-api:', err);
             return NextResponse.json({
                 success: false,
                 issues: [],
-                error: execError.message || 'Lint execution failed',
-            }, { status: 500 });
-
-        } finally {
-            // クリーンアップ
-            try {
-                await unlink(tempFile);
-            } catch (e) { /* ignore */ }
+                error: 'Textlint service is unavailable',
+            }, { status: 503 });
         }
+
+        // Sort by line/column
+        const allIssues = textlintIssues.sort((a, b) => {
+            if (a.line !== b.line) return a.line - b.line;
+            return a.column - b.column;
+        });
+
+        return NextResponse.json({
+            success: true,
+            issues: allIssues,
+        });
 
     } catch (error) {
         console.error('Lint API error:', error);
@@ -118,16 +84,5 @@ export async function POST(request: NextRequest): Promise<NextResponse<LintRespo
             issues: [],
             error: error instanceof Error ? error.message : 'Unknown error',
         }, { status: 500 });
-    }
-}
-
-function mapSeverity(valeSeverity: string): 'error' | 'warning' | 'suggestion' {
-    switch (valeSeverity.toLowerCase()) {
-        case 'error':
-            return 'error';
-        case 'warning':
-            return 'warning';
-        default:
-            return 'suggestion';
     }
 }

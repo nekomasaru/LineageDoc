@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { User, Bot, Save, Trash2, Copy, GitBranch, Edit2 } from 'lucide-react';
@@ -36,6 +36,13 @@ const eventConfig: Record<string, any> = {
         bgColor: 'bg-indigo-50',
         textColor: 'text-indigo-800',
     },
+    ai_branch: {
+        icon: GitBranch,
+        labelKey: 'panel.aiBranch',
+        color: '#d946ef', // fuchsia-500
+        bgColor: 'bg-fuchsia-50',
+        textColor: 'text-fuchsia-800',
+    },
     save: {
         icon: Save,
         labelKey: 'panel.save',
@@ -43,6 +50,11 @@ const eventConfig: Record<string, any> = {
         bgColor: 'bg-green-50',
         textColor: 'text-green-800',
     },
+};
+
+// Fallback for unknown event types to prevent crashes
+const getEventConfig = (type: string) => {
+    return eventConfig[type] || eventConfig.user_edit;
 };
 
 const ROW_HEIGHT = 64; // px
@@ -87,6 +99,19 @@ export function LineaPanel({
     const isSelectedLatest = selectedEventId === latestEventId;
     const isSelectedTip = selectedEventId ? !hasChildrenMap.has(selectedEventId) : false;
 
+    const containerRef = useRef<HTMLDivElement>(null);
+    const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+    // 選択中のイベントが画面外ならスクロールする
+    useEffect(() => {
+        if (selectedEventId && scrollAreaRef.current) {
+            const element = document.getElementById(`linea-row-${selectedEventId}`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+    }, [selectedEventId]);
+
     // キーボード操作
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -115,11 +140,18 @@ export function LineaPanel({
         }
     };
 
+    const handleContainerClick = () => {
+        // ツリー全体をクリックしたときにフォーカスを当てる（キーボード操作を継続させる）
+        containerRef.current?.focus();
+    };
+
     return (
         <div
+            ref={containerRef}
             className="w-full h-full bg-slate-50 border-r border-slate-200 flex flex-col shrink-0 outline-none"
             tabIndex={0}
             onKeyDown={handleKeyDown}
+            onClick={handleContainerClick}
         >
             {/* Header */}
             <div className="h-12 bg-white border-b border-slate-200 flex items-center px-4 shrink-0 justify-between">
@@ -133,7 +165,7 @@ export function LineaPanel({
             </div>
 
             {/* Content Area (SVG + List) */}
-            <div id="lineage-tree-container" className="flex-1 overflow-auto relative">
+            <div id="lineage-tree-container" ref={scrollAreaRef} className="flex-1 overflow-auto relative">
                 {nodes.length === 0 ? (
                     <div className="text-center text-slate-400 py-12 px-6">
                         <p className="text-xs">{t('panel.empty')}</p>
@@ -241,7 +273,7 @@ export function LineaPanel({
                         <div className="relative z-20">
                             {nodes.map((node) => {
                                 const event = node.event;
-                                const config = eventConfig[event.type];
+                                const config = getEventConfig(event.type);
                                 const Icon = config.icon;
                                 const isSelected = event.id === selectedEventId;
                                 const isLatest = event.id === latestEventId;
@@ -250,11 +282,16 @@ export function LineaPanel({
                                 return (
                                     <div
                                         key={event.id}
+                                        id={`linea-row-${event.id}`}
                                         style={{ height: ROW_HEIGHT, paddingLeft: graphWidth + 8, overflow: 'hidden' }}
                                         className={`min-w-max h-16 w-full flex items-center pr-2 border-b border-slate-100 transition-colors cursor-pointer shrink-0
                                             ${isSelected ? 'bg-cyan-50/80' : 'hover:bg-slate-50'}
                                         `}
-                                        onClick={() => onSelectEvent(event)}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSelectEvent(event);
+                                            handleContainerClick();
+                                        }}
                                     >
                                         <div className="flex-1 min-w-0 py-2">
                                             <div className="flex items-center gap-2 mb-1">

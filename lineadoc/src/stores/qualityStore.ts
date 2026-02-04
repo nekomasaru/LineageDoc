@@ -5,6 +5,7 @@
  */
 
 import { create } from 'zustand';
+import { validateSchema } from '@/lib/quality/md-schema';
 
 export interface QualityIssue {
     id: string;
@@ -13,7 +14,7 @@ export interface QualityIssue {
     message: string;
     line?: number;
     field?: string;
-    source: string; // 'Vale' or 'mdschema'
+    source: string; // 'Vale', 'Textlint', or 'MDSCHEMA'
 }
 
 interface QualityState {
@@ -28,7 +29,7 @@ interface QualityState {
     setHighlightedIssue: (issue: QualityIssue | null) => void;
 
     // チェック実行（簡易バリデーター）
-    runValidation: (content: string, frontmatter: any) => void;
+    runValidation: (content: string, frontmatter: any, mdSchema?: string) => Promise<void>;
 }
 
 export const useQualityStore = create<QualityState>((set) => ({
@@ -41,64 +42,55 @@ export const useQualityStore = create<QualityState>((set) => ({
     setChecking: (isChecking) => set({ isChecking }),
     setHighlightedIssue: (issue) => set({ highlightedIssue: issue }),
 
-    runValidation: async (content, frontmatter) => {
+    runValidation: async (content, frontmatter, mdSchema) => {
         set({ isChecking: true });
 
         try {
             const newIssues: QualityIssue[] = [];
 
-            // 1. Textlint API 呼び出し
+            // 1. Client-side Schema Validation (MDSCHEMA)
+            const schemaResult = validateSchema(content, mdSchema);
+            if (!schemaResult.valid) {
+                schemaResult.issues.forEach((issue, index) => {
+                    newIssues.push({
+                        id: `schema-${index}`,
+                        type: 'structure',
+                        level: issue.severity,
+                        message: issue.message,
+                        line: issue.line,
+                        source: 'MDSCHEMA'
+                    });
+                });
+            }
+
+            // 2. Textlint / Vale API Calls (Server-side)
             try {
-                const response = await fetch('http://localhost:8080/api/lint', {
+                // Use relative path for internal API route
+                const response = await fetch('/api/lint', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: content }),
+                    body: JSON.stringify({ content }),
                 });
 
                 if (response.ok) {
                     const data = await response.json();
 
-                    // Textlintの結果をQualityIssueに変換
-                    if (data.errors && Array.isArray(data.errors)) {
-                        data.errors.forEach((msg: any, index: number) => {
+                    if (data.issues && Array.isArray(data.issues)) {
+                        data.issues.forEach((msg: any, index: number) => {
                             newIssues.push({
-                                id: `textlint-${index}-${msg.line}-${msg.column}`,
+                                id: `lint-${index}-${msg.line}-${msg.column}`,
                                 type: 'prose',
-                                level: msg.severity as 'error' | 'warning' | 'suggestion',
+                                level: msg.severity,
                                 message: msg.message,
                                 line: msg.line,
-                                source: 'Textlint',
+                                source: msg.rule || 'Textlint',
                             });
                         });
                     }
-                } else {
-                    console.error('Textlint API error:', response.statusText);
                 }
             } catch (err) {
-                console.error('Textlint API connection failed:', err);
-                // 接続失敗時もプロセスを落とさない
-            }
-
-            // 2. mdschema 相当の構造チェック (YAML) - 既存ロジック維持
-            if (!frontmatter.rationale || frontmatter.rationale.length < 10) {
-                newIssues.push({
-                    id: 'schema-1',
-                    type: 'structure',
-                    level: 'warning',
-                    message: '起案の理由（rationale）が短すぎます。より具体的な背景を記述してください。',
-                    field: 'rationale',
-                    source: 'mdschema'
-                });
-            }
-            if (frontmatter.status === 'draft' && frontmatter.author === '') {
-                newIssues.push({
-                    id: 'schema-2',
-                    type: 'structure',
-                    level: 'suggestion',
-                    message: '起案者の名前を入力することを推奨します。',
-                    field: 'author',
-                    source: 'mdschema'
-                });
+                // API unavailable - skip without error
+                // console.debug('Lint API unavailable');
             }
 
             set({ issues: newIssues, isChecking: false });

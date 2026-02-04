@@ -49,8 +49,8 @@ interface AppState {
     setCurrentDocument: (id: string | null, title?: string) => void;
 
     // ===== モーダル管理 =====
-    activeModal: 'export' | 'create-template' | 'ai-instruction' | null;
-    setActiveModal: (modal: 'export' | 'create-template' | 'ai-instruction' | null) => void;
+    activeModal: 'export' | 'create-document' | 'ai-instruction' | null;
+    setActiveModal: (modal: 'export' | 'create-document' | 'ai-instruction' | null) => void;
 }
 
 export const useAppStore = create<AppState>()(

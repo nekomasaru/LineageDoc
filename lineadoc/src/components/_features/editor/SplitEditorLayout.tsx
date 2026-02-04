@@ -24,6 +24,8 @@ import { useQualityStore } from '@/stores/qualityStore';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
 import { useDebounce } from 'use-debounce';
+import { useAppStore } from '@/stores/appStore';
+import { useDocumentStore } from '@/stores/documentStore';
 
 interface SplitEditorLayoutProps {
     className?: string;
@@ -41,6 +43,10 @@ interface SplitEditorLayoutProps {
     onAiMention?: () => void;
     /** 比較対象のラベル (例: "Comparing with v2") */
     compareLabel?: string;
+    /** ブランチ作成モードフラグ */
+    isBranching?: boolean;
+    /** 選択中の履歴が最新かどうか */
+    isLatestHistory?: boolean;
 }
 
 /**
@@ -57,15 +63,22 @@ export function SplitEditorLayout({
     editorKey,
     onAiMention,
     compareLabel,
+    isBranching = false,
+    isLatestHistory = true,
 }: SplitEditorLayoutProps) {
     const { markdown, mode, setMarkdown } = useEditorStore();
     const [mobileView, setMobileView] = useState<MobileView>('editor');
+    const [targetLine, setTargetLine] = useState<number | undefined>(undefined);
     const monacoRef = useRef<MonacoWrapperHandle>(null);
     const blockNoteRef = useRef<BlockNoteEditorHandle>(null);
 
     // overrideContentがある場合はそれを使用、なければストアのmarkdown
     const fullMarkdown = overrideContent !== undefined ? overrideContent : markdown;
-    const isReadOnly = overrideContent !== undefined;
+    // 履歴閲覧中(overrideContentあり)でも、ブランチ作成中なら編集可能にする
+    const isReadOnly = overrideContent !== undefined && !isBranching;
+
+    // バナーを表示するかどうか: 履歴閲覧中 かつ 最新ではない場合
+    const showReadOnlyBanner = isReadOnly && !isLatestHistory;
 
     // Frontmatterと本文を分離する
     const { data: frontmatter, content: body } = useMemo(() => {
@@ -87,6 +100,25 @@ export function SplitEditorLayout({
         }
         return effectiveContent;
     }, [effectiveContent, isReadOnly]);
+
+    // 比較用ベースからもFrontmatterを剥がす
+    const effectiveCompareWith = useMemo(() => {
+        if (!compareWith) return undefined;
+        try {
+            return matter(compareWith).content;
+        } catch {
+            return compareWith;
+        }
+    }, [compareWith]);
+
+    const effectiveSavedMarkdown = useMemo(() => {
+        if (!savedMarkdown) return undefined;
+        try {
+            return matter(savedMarkdown).content;
+        } catch {
+            return savedMarkdown;
+        }
+    }, [savedMarkdown]);
 
     // エディタの変更をMarkdown全量に変換して保存する
     const handleEditorChange = useCallback((newBody: string) => {
@@ -119,21 +151,31 @@ export function SplitEditorLayout({
         handleEditorChange(value);
     };
 
+    // Monacoからのスクロール/カーソル移動通知を受け取る
+    const handleMonacoVisibleLineChange = useCallback((line: number) => {
+        setTargetLine(line);
+    }, []);
+
     // 品質チェックの自動実行 (デバウンス処理)
     const { runValidation, issues, highlightedIssue } = useQualityStore();
     const [debouncedMarkdown] = useDebounce(markdown, 2000);
 
+    const { currentDocumentId } = useAppStore();
+    const { documents } = useDocumentStore();
+    const currentDoc = useMemo(() => documents.find(d => d.id === currentDocumentId), [documents, currentDocumentId]);
+
     useEffect(() => {
         if (!isReadOnly) {
+            const mdSchema = currentDoc?.mdSchema;
             try {
                 const { data } = matter(debouncedMarkdown);
-                runValidation(debouncedMarkdown, data);
+                runValidation(debouncedMarkdown, data, mdSchema);
             } catch (e) {
                 // Frontmatterが壊れている場合も、本文のみでチェック
-                runValidation(debouncedMarkdown, {});
+                runValidation(debouncedMarkdown, {}, mdSchema);
             }
         }
-    }, [debouncedMarkdown, isReadOnly, runValidation]);
+    }, [debouncedMarkdown, isReadOnly, runValidation, currentDoc?.mdSchema]);
 
     // ナビゲーション処理（QualityPanelからのジャンプ）
     useEffect(() => {
@@ -149,7 +191,22 @@ export function SplitEditorLayout({
                     const targetLineIndex = highlightedIssue.line - 1;
                     if (targetLineIndex >= 0 && targetLineIndex < lines.length) {
                         const lineContent = lines[targetLineIndex];
-                        if (lineContent.trim()) blockNoteRef.current.focusBlockByContent(lineContent);
+                        if (lineContent.trim()) {
+                            // 同一内容がその行より前に何回出現したかを数える（重複対応）
+                            const occurrences = lines.slice(0, targetLineIndex)
+                                .filter(l => l.trim() === lineContent.trim()).length;
+                            blockNoteRef.current.focusBlockByContent(lineContent, occurrences);
+                        } else {
+                            // 空行の場合は、直前の空でない行を探して移動（付近を表示するため）
+                            for (let i = targetLineIndex - 1; i >= 0; i--) {
+                                if (lines[i].trim()) {
+                                    const occurrences = lines.slice(0, i)
+                                        .filter(l => l.trim() === lines[i].trim()).length;
+                                    blockNoteRef.current.focusBlockByContent(lines[i], occurrences);
+                                    break;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -204,66 +261,78 @@ export function SplitEditorLayout({
             )}
 
             {/* メインエリア（全画面） - 垂直分割を廃止して最大化 */}
-            <div className="flex-1 flex overflow-hidden relative bg-white">
-                {mode === 'rich' ? (
-                    // リッチモード: BlockNoteエディタのみ（全画面）
-                    <div className="flex-1 overflow-hidden h-full relative">
-                        <BlockNoteEditorPane
-                            key={editorKey}
-                            handleRef={blockNoteRef}
-                            className="h-full"
-                            overrideContent={isReadOnly ? effectiveContent : undefined}
-                            onChange={handleEditorChange}
-                            onAiMention={onAiMention}
-                        />
+            <div className="flex-1 flex flex-col overflow-hidden relative bg-white">
+                {showReadOnlyBanner && (
+                    <div className="bg-yellow-50 flex items-center justify-center px-4 py-1.5 text-[10px] text-yellow-700 border-b border-yellow-100 z-50 shrink-0">
+                        <span className="font-bold mr-1 tracking-tighter">過去のバージョンを閲覧中</span>
+                        <span>（編集不可）</span>
                     </div>
-                ) : (
-                    // コードモード: Monaco + プレビュー（左右分割）
-                    <PanelGroup orientation="horizontal" className="flex-1 h-full overflow-hidden">
-                        <Panel
-                            defaultSize="50"
-                            minSize="10"
-                            className={`
+                )}
+                <div className="flex-1 overflow-hidden relative flex">
+                    {mode === 'rich' ? (
+                        // リッチモード: BlockNoteエディタのみ（全画面）
+                        <div className="flex-1 overflow-hidden h-full relative">
+                            <BlockNoteEditorPane
+                                key={editorKey}
+                                handleRef={blockNoteRef}
+                                className="h-full"
+                                overrideContent={isReadOnly ? effectiveContent : undefined}
+                                onChange={handleEditorChange}
+                                onAiMention={onAiMention}
+                            />
+                        </div>
+                    ) : (
+                        // コードモード: Monaco + プレビュー（左右分割）
+                        <PanelGroup orientation="horizontal" className="flex-1 h-full overflow-hidden">
+                            <Panel
+                                defaultSize="50"
+                                minSize="10"
+                                className={`
                                 border-r border-slate-200 bg-white relative
                                 ${mobileView === 'editor' ? 'flex-1' : 'hidden md:block'}
                             `}
-                        >
-                            <MonacoWrapper
-                                key={editorKey}
-                                ref={monacoRef}
-                                value={monacoValue}
-                                onChange={isReadOnly ? () => { } : handleMonacoChange}
-                                onSave={handleInternalSave}
-                                compareWith={compareWith}
-                                activeBase={savedMarkdown}
-                                readOnly={isReadOnly}
-                                issues={issues}
-                                onAiMention={onAiMention}
-                            />
-                            {compareLabel && (
-                                <div className="absolute top-2 right-4 z-50 px-2 py-1 bg-cyan-100 text-cyan-800 text-xs rounded border border-cyan-200 shadow-sm opacity-80 hover:opacity-100 transition-opacity">
-                                    {compareLabel}
-                                </div>
-                            )}
-                        </Panel>
+                            >
+                                <MonacoWrapper
+                                    key={editorKey}
+                                    ref={monacoRef}
+                                    value={monacoValue}
+                                    onChange={isReadOnly ? () => { } : handleMonacoChange}
+                                    onVisibleLineChange={handleMonacoVisibleLineChange}
+                                    onSave={handleInternalSave}
+                                    compareWith={effectiveCompareWith}
+                                    activeBase={effectiveSavedMarkdown}
+                                    readOnly={isReadOnly}
+                                    issues={issues}
+                                    onAiMention={onAiMention}
+                                />
+                                {compareLabel && (
+                                    <div className="absolute top-2 right-4 z-50 px-2 py-1 bg-cyan-100 text-cyan-800 text-xs rounded border border-cyan-200 shadow-sm opacity-80 hover:opacity-100 transition-opacity">
+                                        {compareLabel}
+                                    </div>
+                                )}
+                            </Panel>
 
-                        <Separator className="hidden md:flex w-2 -ml-1 z-50 bg-transparent hover:bg-cyan-400 transition-colors cursor-col-resize group items-center justify-center">
-                            <div className="w-px h-8 bg-slate-300 group-hover:bg-cyan-100 transition-colors" />
-                        </Separator>
+                            <Separator className="hidden md:flex w-2 -ml-1 z-50 bg-transparent hover:bg-cyan-400 transition-colors cursor-col-resize group items-center justify-center">
+                                <div className="w-px h-8 bg-slate-300 group-hover:bg-cyan-100 transition-colors" />
+                            </Separator>
 
-                        <Panel
-                            defaultSize="50"
-                            minSize="10"
-                            className={`
+                            <Panel
+                                defaultSize="50"
+                                minSize="10"
+                                className={`
                                 bg-slate-100
                                 ${mobileView === 'preview' ? 'flex-1' : 'hidden md:block'}
                             `}
-                        >
-                            <PreviewPane content={effectiveContent} />
-                        </Panel>
-                    </PanelGroup>
-                )}
+                            >
+                                <PreviewPane
+                                    content={effectiveContent}
+                                    targetLine={targetLine}
+                                />
+                            </Panel>
+                        </PanelGroup>
+                    )}
+                </div>
             </div>
-        </div >
+        </div>
     );
 }

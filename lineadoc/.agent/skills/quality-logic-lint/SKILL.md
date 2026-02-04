@@ -1,11 +1,11 @@
 ---
 name: quality-logic-lint
-description: 保存時またはボタン押下時にMarkdownに対してVale/mdschemaを実行する。
+description: 保存時またはボタン押下時にMarkdownに対してTextlint/mdschemaを実行する。
 allowed-tools: [file_edit]
 meta:
   domain: quality
   role: validation-logic
-  tech_stack: vale-cli, api-routes
+  tech_stack: textlint, api-routes
   phase: 2
   estimated_time: 50min
   dependencies: [quality-setup-vale]
@@ -15,16 +15,16 @@ meta:
 
 ユーザーがドキュメントを編集・保存する際、または手動でチェックボタンを押した際に、以下のバリデーションを実行し、結果を `qualityStore` に格納する。
 
-1. **MDSCHEMA チェック**: 公文書固有の構造（Frontmatterの必須項目、章立ての構成）が正しいか。
-2. **Textlint/Vale チェック**: 用語統一、不適切な表現（公文書として不適切な言葉遣い）の自動検出。
+1.- **MDSCHEMA**: テンプレートから継承された「見出し構造」のバリデーション。
+- **Textlint**: 「ですます/だである」の混在や用語統一のバリデーション（API経由）、不適切な表現（公文書として不適切な言葉遣い）の自動検出。
+- **Template Context**: `Document` メタデータに含まれる `mdSchema` DSLに基づいたリアルタイムチェック。
 
 # 設計思想
 
-## なぜサーバーサイドか
+## なぜサーバーサイドか (Option)
 
-- Vale CLIはNode.js上で直接実行できない（シェルコマンド）
-- ブラウザからはファイルシステムにアクセスできない
-- Next.js API Routeで一時ファイルを作成し、Valeを実行
+- Textlintはブラウザ(WebWorker)でも動作可能だが、重い処理やカスタムルールの管理をサーバー側に寄せるときはAPI Routeを使用する。
+- **本スキルでは、ブラウザでの実行(WebWorker)を第一候補としつつ、構成管理の観点からAPI化も検討する。**
 
 ## 処理フロー
 
@@ -34,9 +34,9 @@ meta:
     │  POST /api/lint                     │
     │  { content: "# 見出し..." }  ───→   │
     │                                     │
-    │                               1. 一時ファイル作成
-    │                               2. vale 実行
-    │                               3. 結果をJSON解析
+    │                               1. Textlint Engine初期化
+    │                               2. lintText() 実行
+    │                               3. 結果をJSON整形
     │                               4. 一時ファイル削除
     │                                     │
     │  ←───  { issues: [...] }            │
@@ -49,13 +49,11 @@ meta:
 
 ```typescript
 import { NextRequest, NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { writeFile, unlink, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { randomUUID } from 'crypto';
+import { TextLintEngine } from 'textlint';
+import { TextlintResult } from '@textlint/types';
 
-const execAsync = promisify(exec);
+// ルール設定は .textlintrc を参照するか、動的に読み込む
+// ※ 実際の実装ではパフォーマンスのためEngineの再利用などを検討
 
 interface LintIssue {
   line: number;
@@ -75,43 +73,27 @@ export async function POST(request: NextRequest): Promise<NextResponse<LintRespo
   const { content } = await request.json();
   
   if (!content || typeof content !== 'string') {
-    return NextResponse.json({
-      success: false,
-      issues: [],
-      error: 'Content is required',
-    }, { status: 400 });
+    return NextResponse.json({ success: false, issues: [], error: 'Content is required' }, { status: 400 });
   }
-  
-  // 一時ディレクトリとファイルを作成
-  const tempDir = join(process.cwd(), '.temp');
-  const tempFile = join(tempDir, `${randomUUID()}.md`);
-  
+
   try {
-    // ディレクトリ作成
-    await mkdir(tempDir, { recursive: true });
+    const engine = new TextLintEngine({
+        configFile: ".textlintrc" // またはプロジェクトごとの設定パス
+    });
+
+    const results: TextlintResult[] = await engine.executeOnText(content);
     
-    // 一時ファイルに書き込み
-    await writeFile(tempFile, content, 'utf-8');
-    
-    // Vale を実行
-    const { stdout, stderr } = await execAsync(
-      `vale --output=JSON "${tempFile}"`,
-      { cwd: process.cwd() }
+    // 結果の変換
+    const issues: LintIssue[] = results.flatMap(result => 
+        result.messages.map(msg => ({
+            line: msg.line,
+            column: msg.column,
+            severity: msg.severity === 2 ? 'error' : 'warning',
+            message: msg.message,
+            rule: msg.ruleId
+        }))
     );
-    
-    // JSON解析
-    const valeOutput = JSON.parse(stdout || '{}');
-    const fileIssues = valeOutput[tempFile] || [];
-    
-    // フォーマット変換
-    const issues: LintIssue[] = fileIssues.map((issue: any) => ({
-      line: issue.Line,
-      column: issue.Span?.[0] || 1,
-      severity: mapSeverity(issue.Severity),
-      message: issue.Message,
-      rule: issue.Check,
-    }));
-    
+
     return NextResponse.json({
       success: true,
       issues,
@@ -119,43 +101,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<LintRespo
     
   } catch (error) {
     console.error('Lint error:', error);
-    
-    // Vale が見つからない場合などのエラーハンドリング
-    if (error instanceof Error && error.message.includes('vale')) {
-      return NextResponse.json({
-        success: false,
-        issues: [],
-        error: 'Vale CLI is not installed or not in PATH',
-      }, { status: 500 });
-    }
-    
     return NextResponse.json({
       success: false,
       issues: [],
       error: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
-    
-  } finally {
-    // 一時ファイル削除
-    try {
-      await unlink(tempFile);
-    } catch {
-      // 削除失敗は無視
-    }
   }
 }
 
-function mapSeverity(valeSeverity: string): 'error' | 'warning' | 'suggestion' {
-  switch (valeSeverity.toLowerCase()) {
-    case 'error':
-      return 'error';
-    case 'warning':
-      return 'warning';
-    default:
-      return 'suggestion';
-  }
-}
-```
 
 ## `src/lib/api/lintApi.ts`（クライアント側）
 
@@ -175,7 +128,7 @@ interface LintResult {
 }
 
 /**
- * サーバーサイドでValeを実行し、結果を取得する
+ * サーバーサイドでTextlintを実行し、結果を取得する
  */
 export async function lintMarkdown(content: string): Promise<LintResult> {
   try {
@@ -259,20 +212,31 @@ if (result.success) {
 - **一時ファイルは即座に削除**: 機密情報の残存を防止
 - **コマンドインジェクション防止**: ファイルパスは内部生成のみ使用
 
+# 設定管理 (Configuration Management)
+
+Lint設定（Textlint/MDSchema）は以下の優先順位で適用される。
+
+1. **テンプレート**: ドキュメント作成時の初期値（例：「議事録」用プリセット）
+2. **プロジェクト**: プロジェクト単位でのオーバーライド（例：用語集の追加）
+3. **管理者ロック**: 管理者が強制するルール（変更不可）
+
+## 管理画面機能
+
+- **MDSCHEMA/TEXTLINT管理メニュー**: 管理者権限を持つユーザーのみアクセス可能。
+- **テンプレート設定**: 各テンプレートごとの `.textlintrc` や `schema.json` を編集。
+- **プロジェクト設定**: プロジェクト設定画面から、適用するルールのオン/オフを調整（ロック項目を除く）。
+
 # 禁止事項
 
-- **クライアントサイドでのVale実行**: ブラウザでは不可能
-- **ユーザー入力をコマンドに直接渡す**: セキュリティリスク
-- **一時ファイルの放置**: finally ブロックで必ず削除
-- **エラー時の詳細なスタックトレース露出**: クライアントには最小限の情報のみ
+- **クライアントサイドでの重い処理**: Textlintはブラウザでも動作するが、WebWorker利用などを検討すること
+- **ユーザー入力をコマンドに直接渡す**: セキュリティリスク（サーバーサイド実行の場合）
 
 # 完了条件
 
 - [ ] `src/app/api/lint/route.ts` が作成されている
 - [ ] `src/lib/api/lintApi.ts` が作成されている
-- [ ] APIが正常にValeを実行できる
+- [ ] APIが正常にTextlintを実行できる
 - [ ] エラーハンドリングが適切に機能する
-- [ ] 一時ファイルがクリーンアップされる
 
 # 次のスキル
 

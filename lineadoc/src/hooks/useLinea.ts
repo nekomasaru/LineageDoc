@@ -12,15 +12,22 @@ function generateId(): string {
 export function useLinea(documentId?: string | null) {
     const [events, setEvents] = useState<LineaEvent[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
+    const [loadedId, setLoadedId] = useState<string | null>(null);
 
     const storageKey = documentId ? `${STORAGE_BASE_KEY}-${documentId}` : null;
 
     // Initial load from localStorage
     useEffect(() => {
-        if (typeof window === 'undefined' || !storageKey) {
+        if (typeof window === 'undefined' || !storageKey || !documentId) {
+            setEvents([]);
             setIsLoaded(true);
+            setLoadedId(null);
             return;
         }
+
+        // --- NEW: Reset loading state on ID change ---
+        setIsLoaded(false);
+        setLoadedId(null);
 
         const stored = localStorage.getItem(storageKey);
         if (stored) {
@@ -35,12 +42,15 @@ export function useLinea(documentId?: string | null) {
         } else {
             setEvents([]);
         }
+
         setIsLoaded(true);
+        setLoadedId(documentId);
     }, [storageKey, documentId]);
 
     // Save to localStorage whenever events change
     useEffect(() => {
-        if (typeof window === 'undefined' || !isLoaded || !storageKey) return;
+        // --- NEW: Ensure we only save if isLoaded is true AND matches the documentId ---
+        if (typeof window === 'undefined' || !isLoaded || !storageKey || !documentId || loadedId !== documentId) return;
 
         if (events.length > 0) {
             localStorage.setItem(storageKey, JSON.stringify(events));
@@ -50,7 +60,7 @@ export function useLinea(documentId?: string | null) {
                 localStorage.setItem(`lineadoc-doc-content-${documentId}`, latest.content);
             }
         }
-    }, [events, isLoaded, storageKey, documentId]);
+    }, [events, isLoaded, storageKey, documentId, loadedId]);
 
     const addEvent = useCallback((
         content: string,

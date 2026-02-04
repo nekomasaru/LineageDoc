@@ -241,8 +241,8 @@ export function HistoryTimeline({
 
 ```tsx
 const handleRestore = async (version: Version) => {
-  const confirmed = await confirm('このバージョンに復元しますか？現在の編集内容は失われます。');
-  if (!confirmed) return;
+  // ConfirmModal を使用して注意喚起を表示
+  // message: `選択したバージョン (v${version.version_number}) を最新として復元しますか？\n現在の最新状態の上に、このバージョンの内容で新しい履歴が追加されます。`
   
   // ストアを更新
   useEditorStore.getState().setMarkdown(version.content);
@@ -254,6 +254,16 @@ const handleRestore = async (version: Version) => {
   onClose();
 };
 ```
+
+# 履歴のクリア（リセット）
+
+1. **確認**: `ConfirmModal` を `variant="danger"` で表示。
+2. **メッセージ**: `このドキュメントのすべての履歴を消去しますか？\n消去後は現在の内容が「v1」として新しく保存されます。この操作は取り消せません。`
+3. **実行**: 既存の `versions` を全削除し、現在のエディタ内容を `v1` として新規作成する。
+
+# インタラクティブなコメント編集
+
+履歴ツリー（SVGグラフ）上に表示されるコメントラベルをクリックした際、`BranchCommentModal` を `mode="edit"` で開き、過去の履歴サマリーを事後編集できるように実装すること。
 
 # Diff表示（オプション）
 
@@ -285,7 +295,7 @@ function DiffView({ oldContent, newContent }: { oldContent: string; newContent: 
 # 禁止事項
 
 - **最新バージョンの復元ボタン表示**: 最新（index === 0）には復元ボタンを表示しない。
-- **復元確認のスキップ**: 必ず確認ダイアログを表示する。
+- **復元・消去確認のスキップ**: 必ず `ConfirmModal` を表示してユーザーに確認を促す。
 - **無限スクロールなしで全件取得**: 大量の履歴がある場合はページネーションを実装。
 - **アクセシビリティの無視**: タイムラインはスクリーンリーダー対応が必要。
 

@@ -4,7 +4,7 @@ export interface LineaEvent {
     id: string;
     parentId: string | null; // 親ノードID（DAG構造）
     timestamp: string;  // ISO8601
-    type: 'user_edit' | 'ai_suggestion' | 'save';
+    type: 'user_edit' | 'ai_suggestion' | 'ai_branch' | 'save';
     content: string;    // その時点のドキュメント全文
     summary?: string;   // 変更の概要（オプション）
     version?: number;   // バージョン番号 (v1, v2, ...)
@@ -48,6 +48,7 @@ export interface Document {
     projectId: string; // Required link to Project
     title: string;
     rawContent: string;
+    mdSchema?: string; // MDSchema definition (YAML/DSL)
     attributes?: Record<string, any>; // Flexible metadata
     createdAt: string;
     updatedAt: string;

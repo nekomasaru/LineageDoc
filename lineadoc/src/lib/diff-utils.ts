@@ -14,7 +14,12 @@ export interface DiffResult {
  * @returns 差分結果の配列
  */
 export function computeDiff(oldText: string, newText: string): DiffResult[] {
-    const changes = diffLines(oldText, newText);
+    // Frontmatterの除去と改行コードの正規化 (\r\n -> \n)
+    const stripFM = (text: string) => (text || '').replace(/^---[\s\S]*?---\n?/, '');
+    const normalizedOld = stripFM(oldText).replace(/\r\n/g, '\n');
+    const normalizedNew = stripFM(newText).replace(/\r\n/g, '\n');
+
+    const changes = diffLines(normalizedOld, normalizedNew, { ignoreWhitespace: true });
     const results: DiffResult[] = [];
     let currentLine = 1;
 

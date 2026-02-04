@@ -45,7 +45,7 @@
     - パンくずリストの末尾、またはその下段に配置。インライン編集可能。
 - **Toolbar (Right)**:
     - **Actions**:
-        - **Save**: 手動保存ボタン（Ctrl+S対応）。
+        - **Save**: 手動保存ボタン（Ctrl+S対応）。履歴に変更がない場合はスキップし、メタデータのみ更新。
         - **Export**: <Upload /> アイコン。MD/TXT/JSON形式での書き出し。
         - **Import**: <Download /> アイコン。MD/TXTファイルの取り込み。
     - **Editor Mode Toggle**: `Rich (WYSIWYG)` と `Code (Markdown)` の切り替え。
@@ -66,6 +66,11 @@
     - リネージグラフ（Gitツリー風）とバージョンリスト。
     - 60pxの広幅マージンにより、複雑な分岐も視認性を維持。
     - 過去バージョンの閲覧、比較、復元、ブランチ作成。
+    - **Interactive History**:
+        - **Branching**: 過去イベント選択後、「ブランチ作成」で理由入力モーダルが表示され、初の保存時に記録される。
+        - **Restoration**: 過去バージョンを最新化する際は、専用の `ConfirmModal` で警告を表示。
+        - **Comment Edit**: 木構造のコメントラベルをクリックして直接編集可能。
+        - **Clear History**: 履歴全体のクリア時には「v1リセット」を伴う警告モーダルを表示。
 - **Attributes Tab**:
     - `FrontmatterForm` を格納。
     - ドキュメント属性（タグ、ステータス、優先度）の編集。

@@ -169,6 +169,14 @@ const debouncedSetMarkdown = useDebouncedCallback(
 );
 ```
 
+# エラー表示とジャンプ機能
+
+Textlint等の品質チェックでエラーが発生した際、該当箇所へのジャンプ機能を提供する。
+
+- **スクロール**: `scrollIntoView` を使用して該当ブロックを表示する。
+- **ハイライト**: エディタの不安定さを避けるため、**アニメーションや色による強調表示は行わない**。Textlintパネル側の行表示で十分とする。
+- **フォーカス制御**: ジャンプ時にエディタへフォーカスを奪わず、ユーザーの意図しないカーソル移動を防ぐ。
+
 # 完了条件
 
 - [ ] `@blocknote/react`, `@blocknote/core`, `@blocknote/mantine` がインストールされている

@@ -10,7 +10,8 @@
 
 'use client';
 
-import { useEffect, useRef, useCallback, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo, useImperativeHandle } from 'react';
+import dynamic from 'next/dynamic';
 import { useDebouncedCallback } from 'use-debounce';
 import { useEditorStore } from '@/stores/editorStore';
 import {
@@ -18,13 +19,13 @@ import {
     unregisterBlockNoteEditor
 } from '@/lib/editor/editorSync';
 import { translateSlashMenuItems, filterJapaneseSlashMenuItems } from '@/lib/blockNote/japaneseSlashMenu';
-import matter from 'gray-matter';
+import { useCreateBlockNote, SuggestionMenuController, getDefaultReactSlashMenuItems } from '@blocknote/react';
+import { BlockNoteView } from '@blocknote/mantine';
 
-// BlockNoteを動的にインポート（SSR回避）
-import dynamic from 'next/dynamic';
+// CSSは global.css で一括読み込みに変更
 
 export interface BlockNoteEditorHandle {
-    focusBlockByContent: (content: string) => void;
+    focusBlockByContent: (content: string, occurrenceIndex?: number) => void;
 }
 
 interface BlockNoteEditorPaneProps {
@@ -51,396 +52,196 @@ function BlockNoteLoading() {
     );
 }
 
-// 実際のエディタコンポーネント（クライアントサイドのみ）
+/**
+ * 内部エディタコンポーネント
+ */
 function BlockNoteEditorInner({ className = '', overrideContent, onChange, handleRef, onAiMention }: BlockNoteEditorPaneProps) {
-    // BlockNote関連のコンポーネントを動的に保持
-    const [BlockNoteComponents, setBlockNoteComponents] = useState<{
-        useCreateBlockNote: any;
-        BlockNoteView: any;
-        SuggestionMenuController: any;
-        getDefaultReactSlashMenuItems: any;
-    } | null>(null);
-
     const { markdown, mode, setMarkdown } = useEditorStore();
+
+    // エディタインスタンスを作成
+    const editor = useCreateBlockNote();
 
     // 初期化フラグ
     const isInitializedRef = useRef(false);
     // 内部更新フラグ（ユーザー操作による更新中）
     const isInternalUpdateRef = useRef(false);
-    // 外部更新フラグ（ストアからの同期中） - refは非同期コールバック内での判定用
+    // 外部更新フラグ（ストアからの同期中）
     const isRemoteUpdateRef = useRef(false);
-    // 同期中ステート - UI制御（ReadOnly強制）用
+    // 同期中ステート
     const [isSyncing, setIsSyncing] = useState(false);
-
     // 最後のMarkdown値
     const lastMarkdownRef = useRef(markdown);
-    // エディタインスタンス
-    const editorInstanceRef = useRef<any>(null);
-
-    // BlockNoteを動的にロード
-    useEffect(() => {
-        const loadBlockNote = async () => {
-            try {
-                const [reactModule, mantineModule] = await Promise.all([
-                    import('@blocknote/react'),
-                    import('@blocknote/mantine'),
-                ]);
-                // CSSもインポート
-                // @ts-ignore
-                await import('@blocknote/mantine/style.css');
-
-                setBlockNoteComponents({
-                    useCreateBlockNote: reactModule.useCreateBlockNote,
-                    BlockNoteView: mantineModule.BlockNoteView,
-                    SuggestionMenuController: reactModule.SuggestionMenuController,
-                    getDefaultReactSlashMenuItems: reactModule.getDefaultReactSlashMenuItems,
-                });
-            } catch (error) {
-                console.error('[BlockNote] Failed to load:', error);
-            }
-        };
-
-        loadBlockNote();
-    }, []);
 
     // overrideContentがある合はそれを使用、なければストアのmarkdown
     const fullMarkdown = overrideContent !== undefined ? overrideContent : markdown;
     const isReadOnly = overrideContent !== undefined;
 
-    // Frontmatterを剥がして本文のみをBlockNoteに渡す
-    const bodyContent = useMemo(() => {
-        try {
-            const { content } = matter(fullMarkdown);
-            return content;
-        } catch (e) {
-            return fullMarkdown;
-        }
-    }, [fullMarkdown]);
-
-    // Rich モード以外では表示しない
-    if (mode !== 'rich') {
-        return null;
-    }
-
-    // BlockNoteがまだロードされていない場合
-    if (!BlockNoteComponents) {
-        return <BlockNoteLoading />;
-    }
-
-
-    return (
-        <BlockNoteEditorCore
-            className={className}
-            BlockNoteComponents={BlockNoteComponents}
-            markdown={bodyContent}
-            setMarkdown={onChange || setMarkdown}
-            isInitializedRef={isInitializedRef}
-            isInternalUpdateRef={isInternalUpdateRef}
-            isRemoteUpdateRef={isRemoteUpdateRef}
-            lastMarkdownRef={lastMarkdownRef}
-            editorInstanceRef={editorInstanceRef}
-            isReadOnly={isReadOnly}
-            isSyncing={isSyncing}
-            setIsSyncing={setIsSyncing}
-            handleRef={handleRef}
-            onAiMention={onAiMention}
-        />
-    );
-}
-
-// SSRを無効にしてエクスポート
-function BlockNoteEditorCore({
-    className,
-    BlockNoteComponents,
-    markdown,
-    setMarkdown,
-    isInitializedRef,
-    isInternalUpdateRef,
-    isRemoteUpdateRef,
-    lastMarkdownRef,
-    editorInstanceRef,
-    isReadOnly,
-    isSyncing,
-    setIsSyncing,
-    handleRef,
-    onAiMention,
-}: {
-    className: string;
-    BlockNoteComponents: {
-        useCreateBlockNote: any;
-        BlockNoteView: any;
-        SuggestionMenuController: any;
-        getDefaultReactSlashMenuItems: any;
-    };
-    markdown: string;
-    setMarkdown: (md: string) => void;
-    isInitializedRef: React.MutableRefObject<boolean>;
-    isInternalUpdateRef: React.MutableRefObject<boolean>;
-    isRemoteUpdateRef: React.MutableRefObject<boolean>;
-    lastMarkdownRef: React.MutableRefObject<string>;
-    editorInstanceRef: React.MutableRefObject<any>;
-    isReadOnly: boolean;
-    isSyncing: boolean;
-    setIsSyncing: (syncing: boolean) => void;
-    handleRef?: React.Ref<BlockNoteEditorHandle>;
-    onAiMention?: () => void;
-}) {
-    const {
-        useCreateBlockNote,
-        BlockNoteView,
-        SuggestionMenuController,
-        getDefaultReactSlashMenuItems,
-    } = BlockNoteComponents;
-
-    // BlockNoteエディタインスタンスを作成
-    const editor = useCreateBlockNote({});
-
-    // エディタインスタンスを保存
-    useEffect(() => {
-        editorInstanceRef.current = editor;
-    }, [editor, editorInstanceRef]);
-
-    // テキスト内容からブロックを特定してフォーカスする機能
+    // ハンドル機能の提供
     useImperativeHandle(handleRef, () => ({
-        focusBlockByContent: (targetContent: string) => {
-            const editor = editorInstanceRef.current;
-            console.log('[BlockNote] focusBlockByContent called with:', targetContent);
-            if (!editor) {
-                console.warn('[BlockNote] Editor instance not found');
-                return;
-            }
+        focusBlockByContent: (targetContent: string, occurrenceIndex: number = 0) => {
+            console.log('[BlockNote] focusBlockByContent requested:', targetContent, 'occurrence:', occurrenceIndex);
+            if (!editor) return;
 
-            // シンプルな正規化（空白除去など）
-            const normalize = (s: string) => s.trim().replace(/\s+/g, '');
+            const normalize = (s: string) => s.trim().replace(/\s+/g, ' ');
             const target = normalize(targetContent);
-
             if (!target) return;
 
-            // 全ブロックを走査
-            for (const block of editor.document) {
-                // ブロックのテキスト内容を取得
-                let blockText = '';
-                if (Array.isArray(block.content)) {
-                    blockText = block.content.map((c: any) => c.text).join('');
-                } else if (typeof block.content === 'string') {
-                    blockText = block.content;
-                }
+            // 全てのブロックをフラットに取得・検索するためのコンテキスト
+            const state = { count: 0 };
 
-                const normalizedBlock = normalize(blockText);
+            const findBlockRecursively = (blocks: any[]): any | null => {
+                for (const block of blocks) {
+                    let blockText = '';
+                    if (Array.isArray(block.content)) {
+                        blockText = block.content.map((c: any) => c.text).join('');
+                    } else if (typeof block.content === 'string') {
+                        blockText = block.content;
+                    }
 
-                if (normalizedBlock.length > 0 && normalizedBlock.includes(target)) {
-                    console.log('[BlockNote] Match found! Focusing block:', block.id);
+                    const normalizedBlock = normalize(blockText);
 
-                    // 1. カーソルをセット (とりあえず末尾に)
-                    editor.setTextCursorPosition(block, 'end');
-                    editor.focus();
-
-                    // 2. DOM要素を取得してスクロール (BlockNoteは通常 data-id={block.id} を持つ)
-                    setTimeout(() => {
-                        const blockElem = document.querySelector(`[data-id="${block.id}"]`) as HTMLElement;
-                        if (blockElem) {
-                            blockElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                            // 3. 確実なハイライトのためにオーバーレイを作成して被せる
-                            // エディタの再レンダリングに影響されないよう、body直下に配置
-                            const rect = blockElem.getBoundingClientRect();
-                            const overlay = document.createElement('div');
-                            overlay.style.position = 'fixed';
-                            overlay.style.top = `${rect.top}px`;
-                            overlay.style.left = `${rect.left}px`;
-                            overlay.style.width = `${rect.width}px`;
-                            overlay.style.height = `${rect.height}px`;
-                            overlay.style.backgroundColor = 'rgba(254, 249, 195, 0.5)'; // yellow-100 with opacity
-                            overlay.style.pointerEvents = 'none'; // クリック透過
-                            overlay.style.zIndex = '9999';
-                            overlay.style.transition = 'opacity 1s ease-out';
-
-                            document.body.appendChild(overlay);
-
-                            // フェードアウトして削除
-                            setTimeout(() => {
-                                overlay.style.opacity = '0';
-                                setTimeout(() => {
-                                    document.body.removeChild(overlay);
-                                }, 1000);
-                            }, 1500);
-
-                        } else {
-                            console.warn('[BlockNote] DOM element not found for block:', block.id);
+                    // 1. まず現在のブロックが対象を含んでいるか
+                    if (normalizedBlock && (normalizedBlock.includes(target) || target.includes(normalizedBlock))) {
+                        if (state.count === occurrenceIndex) {
+                            return block;
                         }
-                    }, 100); // エディタのフォーカス処理待ち (少し長めに)
+                        state.count++;
+                    }
 
-                    break;
+                    // 2. 子要素を再帰的に検索
+                    if (block.children && block.children.length > 0) {
+                        const found = findBlockRecursively(block.children);
+                        if (found) return found;
+                    }
                 }
+                return null;
+            };
+
+            const targetBlock = findBlockRecursively(editor.document);
+
+            if (targetBlock) {
+                console.log('[BlockNote] Found target block:', targetBlock.id);
+                // 選択位置のみセットし、フォーカスは強制しない
+                editor.setTextCursorPosition(targetBlock, 'end');
+
+                setTimeout(() => {
+                    const blockElem = (
+                        document.querySelector(`[data-id="${targetBlock.id}"]`) ||
+                        document.querySelector(`[data-block-id="${targetBlock.id}"]`) ||
+                        document.querySelector(`#${targetBlock.id}`)
+                    ) as HTMLElement;
+
+                    if (blockElem) {
+                        blockElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 100);
+            } else {
+                console.warn('[BlockNote] Could not find block data for content:', targetContent);
             }
         }
-    }), [handleRef]);
+    }), [editor]);
 
-    // 読み取り専用設定
-    // 同期中(isSyncing)も強制的にReadOnlyにする（イベント発火防止）
+    // 読み取り専用・同期中の制御
     useEffect(() => {
         if (editor) {
             editor.isEditable = !isReadOnly && !isSyncing;
         }
     }, [editor, isReadOnly, isSyncing]);
 
-    /**
-     * エディタインスタンスを同期システムに登録
-     */
+    // 同期システムへの登録
     useEffect(() => {
-        if (editor) {
-            registerBlockNoteEditor(editor);
-        }
-        return () => {
-            unregisterBlockNoteEditor();
-        };
+        if (editor) registerBlockNoteEditor(editor);
+        return () => unregisterBlockNoteEditor();
     }, [editor]);
 
-    /**
-     * エディタ変更時のデバウンスハンドラ
-     * ※ useEffect より先に定義して参照できるようにする
-     */
+    // Markdownへの変換（デバウンス）
     const debouncedUpdate = useDebouncedCallback(
         async () => {
-            // 読み取り専用時、または外部からの同期中は更新をストアに反映しない
             if (!editor || isReadOnly || isRemoteUpdateRef.current || isSyncing) return;
-
             isInternalUpdateRef.current = true;
-
             try {
                 const { blocksToMarkdown } = await import('@/lib/editor/blocksToMarkdown');
                 const md = await blocksToMarkdown(editor.document, editor);
                 lastMarkdownRef.current = md;
-                setMarkdown(md);
+                if (onChange) onChange(md);
+                else setMarkdown(md);
             } catch (error) {
                 console.error('[BlockNote] Failed to convert blocks:', error);
             }
-
             isInternalUpdateRef.current = false;
         },
         500
     );
 
-    /**
-     * コンテンツの同期（初回ロード または overrideContent/markdownの変更時）
-     */
+    // ストアからの内容同期
     useEffect(() => {
         if (!editor) return;
 
         const syncContent = async () => {
-            // 内部更新中はスキップ（自分自身の変更による再レンダリング防止）
             if (isInternalUpdateRef.current) return;
-
-            // 内容が同じならスキップ
-            // ただし初期化直後は確実に同期させる
             if (markdown === lastMarkdownRef.current && isInitializedRef.current) return;
 
-            // 同期開始前に保留中の更新を破棄
             debouncedUpdate.cancel();
-
-            // 外部からの更新（同期）を開始
             isRemoteUpdateRef.current = true;
-            setIsSyncing(true); // ステート更新でReadOnly化
+            setIsSyncing(true);
 
             try {
                 const { markdownToBlocks } = await import('@/lib/editor/markdownToBlocks');
                 const blocks = await markdownToBlocks(markdown, editor);
-
-                // ブロックを置換（これにより onChange が発火する可能性があるが、ReadOnlyなので防げる）
                 editor.replaceBlocks(editor.document, blocks);
-
                 isInitializedRef.current = true;
                 lastMarkdownRef.current = markdown;
             } catch (error) {
                 console.error('[BlockNote] Failed to sync content:', error);
             } finally {
-                // 同期完了後、少し待ってからフラグを解除
                 setTimeout(() => {
                     isRemoteUpdateRef.current = false;
-                    setIsSyncing(false); // 編集可能に戻す
+                    setIsSyncing(false);
                 }, 100);
             }
         };
 
         syncContent();
+        return () => debouncedUpdate.cancel();
+    }, [editor, markdown, debouncedUpdate]);
 
-        return () => {
-            debouncedUpdate.cancel();
-        };
-    }, [editor, markdown, isInitializedRef, isInternalUpdateRef, isRemoteUpdateRef, lastMarkdownRef, debouncedUpdate, setIsSyncing]);
-
-    /**
-     * エディタ内容変更時のハンドラ
-     */
+    // 変更検知
     const handleChange = useCallback(() => {
-        // 即時ガード: 読み取り専用や同期中は一切処理しない
         if (isReadOnly || isSyncing) return;
-
-        // 同期中はデバウンスすら不要かもしれないが、念のため呼んでデバウンス内部で弾く
         debouncedUpdate();
     }, [debouncedUpdate, isReadOnly, isSyncing]);
 
-    /**
-     * 日本語化されたスラッシュメニュー項目を取得
-     */
+    // スラッシュメニュー項目（日本語化）
     const getJapaneseSlashMenuItems = useCallback(
         async (query: string) => {
             const defaultItems = getDefaultReactSlashMenuItems(editor);
             const japaneseItems = translateSlashMenuItems(defaultItems);
             return filterJapaneseSlashMenuItems(japaneseItems, query);
         },
-        [editor, getDefaultReactSlashMenuItems]
+        [editor]
     );
 
-    /**
-     * @メンションメニュー項目を取得
-     */
+    // @メンションメニュー項目
     const getMentionMenuItems = useCallback(
         async (query: string) => {
             return [
                 {
                     title: "AI Assistant",
-                    onItemClick: () => {
-                        if (onAiMention) onAiMention();
-                    },
-                    aliases: ["ai", "gpt", "assistant"],
+                    onItemClick: () => onAiMention?.(),
+                    aliases: ["ai", "gpt"],
                     group: "AI",
-                    icon: (
-                        <div className="w-5 h-5 bg-purple-100 text-purple-600 rounded flex items-center justify-center font-bold text-xs">
-                            AI
-                        </div>
-                    ),
+                    icon: <div className="w-5 h-5 bg-purple-100 text-purple-600 rounded flex items-center justify-center font-bold text-xs">AI</div>,
                     subtext: "AIに指示を出してブランチを作成"
-                },
-                // Mock Users
-                {
-                    title: "Me (自分)",
-                    onItemClick: () => { },
-                    aliases: ["me", "myself"],
-                    group: "Members",
-                    icon: (
-                        <div className="w-5 h-5 bg-slate-100 text-slate-600 rounded flex items-center justify-center font-bold text-xs">
-                            Me
-                        </div>
-                    ),
-                    subtext: "自分自身"
                 }
-            ].filter((item) =>
-                item.title.toLowerCase().includes(query.toLowerCase()) ||
-                (item.aliases && item.aliases.some(alias => alias.toLowerCase().includes(query.toLowerCase())))
-            );
+            ].filter((item) => item.title.toLowerCase().includes(query.toLowerCase()));
         },
         [onAiMention]
     );
 
+    if (mode !== 'rich') return null;
+
     return (
-        <div className={`h-full w-full overflow-auto ${className} ${isReadOnly ? 'bg-slate-50' : ''}`}>
-            {isReadOnly && (
-                <div className="sticky top-0 left-0 right-0 bg-yellow-100 px-4 py-2 text-xs text-yellow-800 border-b border-yellow-200 z-10 flex items-center justify-center">
-                    過去のバージョンを表示中（読み取り専用）
-                </div>
-            )}
-            {/* ローディング表示（同期中も表示して操作を防ぐ） */}
+        <div className={`h-full w-full overflow-auto relative ${className} ${isReadOnly ? 'bg-slate-50' : ''}`}>
             {isSyncing && !isReadOnly && (
                 <div className="absolute inset-0 bg-white/50 z-20 flex items-center justify-center">
                     <div className="w-6 h-6 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
@@ -470,8 +271,9 @@ function BlockNoteEditorCore({
     );
 }
 
-// SSRを無効にしてエクスポート
-// SSRを無効にしてエクスポート
+/**
+ * SSR非対応のためdynamicインポートでエクスポート
+ */
 export const BlockNoteEditorPane = dynamic(
     () => Promise.resolve(BlockNoteEditorInner),
     {

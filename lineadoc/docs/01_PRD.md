@@ -16,11 +16,16 @@
    - 右：文書スタイルプレビュー（A4縦・Noto Sans JP）
    - **双方向スクロール同期**（行番号ベース）実装済み。
 
-2. **Visual Lineage** [NEXT]
-   - エディタ上で、AIの修正提案などの「差分」を視覚化する機能。
+2. **Visual Lineage & AI Collaboration** [DONE]
+   - **Sibling Branching**: 最新の記述を維持したままAIが別案を提案する並列分岐ロジック。
+   - **DAG可視化**: SVGとHTMLを組み合わせた履歴ツリー表示。
 
-3. **Supabase Integration** [TODO]
-   - データ保存・管理機能。
+3. **Template & Governance** [IN PROGRESS]
+   - **カード型テンプレート選択**: 業務に応じた初期構成の自動注入。
+   - **MDSCHEMA**: 文書構造のリアルタイムバリデーション。
+
+4. **Supabase Integration** [TODO]
+   - データ保存・管理・マルチデバイス同期。
 
 ## UI Design Guidelines
 

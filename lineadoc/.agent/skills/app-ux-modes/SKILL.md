@@ -47,8 +47,34 @@ graph TD
     subgraph Spoke Modes
         Write -->|Toggle| Proof
         Proof -->|Toggle| Write
+    subgraph Spoke Modes
+        Write -->|Toggle| Proof
+        Proof -->|Toggle| Write
     end
 ```
+
+# ワークフロー詳細
+
+## 1. 新規ドキュメント作成フロー
+
+1. **テンプレート選択 (Card UI)**:
+    - 「ナレッジ」「議事録」「日報」などのカードから選択。
+    - 各テンプレートには「初期Markdown構成（見出し等）」と「推奨品質設定（MDSchema/Textlint）」が紐付いている。
+2. **プロジェクト設定**:
+    - テンプレートの品質設定をプロジェクト単位でオーバーライド可能（ただし管理者がロックした項目は変更不可）。
+
+## 2. AIコラボレーションフロー
+
+1. **指示出し (Instruction)**:
+    - ユーザーが最新履歴（Latest）を表示中にAIへ指示を出す。
+2. **兄弟ブランチ作成 (Sibling Branching)**:
+    - システムは自動的に**「一つ前の履歴」**から分岐を作成する。
+    - 現在の作業（Latest）を温存しつつ、AIが並行世界の案（Sibling）を作成して作業を進める。
+3. **マージ (Merge)**:
+    - ユーザーはAIの成果物を確認し、手動またはAI支援を受けてメインラインに統合する。
+    - チームメンバーも並行してブランチ側を編集可能（コラボレーション）。
+
+# 実装方法
 
 # 実装方法
 
@@ -65,6 +91,9 @@ export type WorkMode = 'write' | 'proof';
 export type RightPanelTab = 'history' | 'attributes' | 'graph' | null;
 
 interface AppState {
+  // **Hub (Dashboard)**: チーム・プロジェクト・ドキュメントを一覧し、進入経路を提供する「ハブ」画面。
+  // **Spoke (Editor)**: 選択されたドキュメントの編集に集中する「スポーク」画面。
+  // **Template Selection**: 新規作成時のメタデータ初期化（Markdown + Schema）を伴うマルチステップ対話。
   // Spoke内のワークモード
   workMode: WorkMode;
   setWorkMode: (mode: WorkMode) => void;

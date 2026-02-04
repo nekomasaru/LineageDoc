@@ -197,6 +197,11 @@ export function LineageGraph({
 }
 ```
 
+      </div>
+    </div>
+  );
+}
+
 ## `src/components/_features/lineage/DiffView.tsx`
 
 ```tsx
@@ -218,10 +223,11 @@ export function DiffView({
   oldLabel = '変更前',
   newLabel = '変更後',
 }: DiffViewProps) {
-  const changes = useMemo(
-    () => diffLines(oldContent, newContent),
-    [oldContent, newContent]
-  );
+  const changes = useMemo(() => {
+    // 比較前の正規化（フロントマターの除去、改行コードの統一）
+    const normalize = (text: string) => text.replace(/^---[\s\S]*?---\n?/, '').replace(/\r\n/g, '\n');
+    return diffLines(normalize(oldContent), normalize(newContent), { ignoreWhitespace: true });
+  }, [oldContent, newContent]);
 
   const stats = useMemo(() => {
     let added = 0;
@@ -235,56 +241,52 @@ export function DiffView({
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-      {/* ヘッダー */}
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-200">
-        <div className="text-sm text-slate-600">
-          {oldLabel} → {newLabel}
-        </div>
-        <div className="flex gap-3 text-xs">
-          <span className="text-green-600">+{stats.added} 行</span>
-          <span className="text-red-600">-{stats.removed} 行</span>
-        </div>
-      </div>
-
-      {/* 差分表示 */}
+      {/* ... Header & Render Logic ... */}
       <div className="overflow-x-auto">
         <pre className="p-4 text-sm font-mono">
           {changes.map((change, i) => (
-            <DiffLine key={i} change={change} />
+             <div
+               key={i}
+               className={`
+                 px-2 -mx-2
+                 ${change.added ? 'bg-green-50 text-green-800' : ''}
+                 ${change.removed ? 'bg-red-50 text-red-800' : ''}
+               `}
+             >
+               <span className="select-none text-slate-400 mr-2">
+                 {change.added ? '+' : change.removed ? '-' : ' '}
+               </span>
+               {change.value}
+             </div>
           ))}
         </pre>
       </div>
     </div>
   );
 }
-
-function DiffLine({ change }: { change: Change }) {
-  const lines = change.value.split('\n').filter((_, i, arr) =>
-    // 最後の空行は除外
-    i < arr.length - 1 || arr[i] !== ''
-  );
-
-  return (
-    <>
-      {lines.map((line, i) => (
-        <div
-          key={i}
-          className={`
-            px-2 -mx-2
-            ${change.added ? 'bg-green-50 text-green-800' : ''}
-            ${change.removed ? 'bg-red-50 text-red-800' : ''}
-          `}
-        >
-          <span className="select-none text-slate-400 mr-2">
-            {change.added ? '+' : change.removed ? '-' : ' '}
-          </span>
-          {line || ' '}
-        </div>
-      ))}
-    </>
-  );
-}
 ```
+
+# 差分の正確な計算
+
+差分表示の精度を高めるため、以下の正規化処理を行うこと。
+
+1. **Frontmatterの除外**: 内容の比較前に `gray-matter` 等を用いてYAMLフロントマターを除去し、本文のみを評価する。
+2. **改行コードの正規化**: `\r\n` を `\n` に置換して比較する。
+3. **空白の無視**: `diffLines` のオプションで `ignoreWhitespace: true` を指定することを検討する。
+
+# ツリー上でのインタラクション
+
+1. **コメント編集**: 木構造に表示されるコメントラベルに `onClick` イベントを付与し、既存のサマリーを編集可能にする。
+2. **Sibling Branching (並列分岐)**: 最新ノードに対してAI指示を行った際、自動的に一つ前のノードを親として分岐させるロジックの管理。
+3. **Layering Architecture**:
+   - `z-10`: **SVG Layer** (背景・接続線)
+   - `z-20`: **List Layer** (リスト本体)
+   - `z-30`: **Overlay Layer** (インタラクティブなコメントラベル等)
+4. **ブランチ作成**: 特定のノードを選択した状態で「ブランチ作成」を行う際、`BranchCommentModal` を用いて理由を事前に入力させる。
+5. **キーボードナビゲーション**:
+    - 上下矢印キーで履歴（バージョン）を選択・移動できること。
+    - 選択時は自動的にツリーコンテナにフォーカスを維持し、連続的なキー操作を可能にする。
+    - 画面外のノードを選択した際は、自動的にスクロールして表示範囲内に入れる。
 
 # パッケージインストール
 
@@ -306,6 +308,8 @@ npm install -D @types/diff
 - [ ] `DiffView.tsx` が差分を表示する
 - [ ] バージョンクリックでDiff表示が更新される
 - [ ] 追加/削除行が色分け表示される
+- [ ] キーボード（上下キー）でバージョン選択・移動ができる
+- [ ] 選択に合わせてツリーが自動スクロールする
 
 # 次のスキル
 

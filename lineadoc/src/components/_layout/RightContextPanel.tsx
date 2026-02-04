@@ -1,16 +1,37 @@
 import { useAppStore } from '@/stores/appStore';
 import { LineaPanel } from '@/components/_features/lineage/LineaPanel';
 import { FrontmatterForm } from '@/components/_features/editor/FrontmatterForm';
-import { QualityPanel } from '@/components/_features/quality/QualityPanel';
+import { QualityPanel } from '@/components/_layout/panels/QualityPanel';
 import { useLinea } from '@/hooks/useLinea';
 import { Loader2 } from 'lucide-react';
 import { useQualityStore } from '@/stores/qualityStore';
 
-export function RightContextPanel() {
-    const { rightPanelTab, currentDocumentId } = useAppStore();
-    const { setHighlightedIssue } = useQualityStore();
+interface RightContextPanelProps {
+    linea?: ReturnType<typeof useLinea>;
+    selectedEventId?: string;
+    onSelectEvent?: (id: string | null) => void;
+    isBranching?: boolean;
+    onStartBranch?: (event: any) => void;
+    onCancelBranch?: () => void;
+    onEditComment?: (event: any) => void;
+    onMakeLatest?: (event: any) => void;
+    onClearHistory?: () => void;
+}
 
-    // Linea Hook (Load data for History view)
+export function RightContextPanel({
+    linea,
+    selectedEventId,
+    onSelectEvent,
+    isBranching = false,
+    onStartBranch,
+    onCancelBranch,
+    onEditComment,
+    onMakeLatest,
+    onClearHistory
+}: RightContextPanelProps) {
+    const { rightPanelTab, currentDocumentId } = useAppStore();
+
+    // Linea Data from props or fallback
     const {
         events,
         isLoaded: isLineaLoaded,
@@ -18,7 +39,14 @@ export function RightContextPanel() {
         clearEvents,
         resetWithContent,
         updateEventSummary
-    } = useLinea(currentDocumentId);
+    } = linea || {
+        events: [],
+        isLoaded: true,
+        addEvent: () => ({}),
+        clearEvents: () => { },
+        resetWithContent: () => ({}),
+        updateEventSummary: () => { }
+    } as any;
 
     // If panel is closed or no tab selected, return null
     if (!currentDocumentId) {
@@ -35,14 +63,20 @@ export function RightContextPanel() {
                 isLineaLoaded ? (
                     <LineaPanel
                         events={events}
-                        selectedEventId={undefined} // TODO: State for selected event
-                        isBranching={false} // TODO: Integration with Editor branching state
-                        onSelectEvent={(e) => console.log('Select event', e)}
-                        onClearHistory={clearEvents}
-                        onMakeLatest={(e) => console.log('Make latest', e)}
-                        onStartBranch={(e) => console.log('Start branch', e)}
-                        onCancelBranch={() => console.log('Cancel branch')}
-                        onEditComment={(e) => console.log('Edit comment', e)}
+                        selectedEventId={selectedEventId}
+                        isBranching={isBranching}
+                        onSelectEvent={(e) => {
+                            if (e.id === selectedEventId) {
+                                onSelectEvent?.(null); // Deselect toggle
+                            } else {
+                                onSelectEvent?.(e.id);
+                            }
+                        }}
+                        onClearHistory={() => onClearHistory ? onClearHistory() : clearEvents()}
+                        onMakeLatest={(e) => onMakeLatest?.(e)}
+                        onStartBranch={(e) => onStartBranch?.(e)}
+                        onCancelBranch={() => onCancelBranch?.()}
+                        onEditComment={(e) => onEditComment?.(e)}
                     />
                 ) : (
                     <div className="flex items-center justify-center h-full text-slate-400">
@@ -56,11 +90,7 @@ export function RightContextPanel() {
             )}
 
             {rightPanelTab === 'quality' && (
-                <QualityPanel
-                    onIssueClick={(issue) => {
-                        setHighlightedIssue(issue);
-                    }}
-                />
+                <QualityPanel />
             )}
 
             {rightPanelTab === 'graph' && (

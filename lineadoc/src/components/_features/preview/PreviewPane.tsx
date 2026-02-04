@@ -87,32 +87,49 @@ export const PreviewPane = forwardRef<PreviewPaneHandle, PreviewPaneProps>(
 
         const scrollToLine = useCallback((line: number) => {
             if (!containerRef.current) return;
-            isScrollingFromExternalRef.current = true;
 
-            const targetElement = containerRef.current.querySelector(
+            // 完全に一致する行を探す
+            let targetElement = containerRef.current.querySelector(
                 `[data-line="${line}"]`
             ) as HTMLElement;
 
+            // 見つからない場合は、手前の行の中で最も近いものを探す
+            if (!targetElement) {
+                const allLineElements = Array.from(containerRef.current.querySelectorAll('[data-line]')) as HTMLElement[];
+                const candidate = allLineElements
+                    .filter(el => parseInt(el.getAttribute('data-line') || '0', 10) <= line)
+                    .sort((a, b) => parseInt(b.getAttribute('data-line') || '0', 10) - parseInt(a.getAttribute('data-line') || '0', 10))[0];
+                if (candidate) targetElement = candidate;
+            }
+
             if (targetElement) {
-                // scrollIntoViewは水平スクロールも誘発するため、scrollTopのみ操作する方式に変更
+                isScrollingFromExternalRef.current = true;
                 const container = containerRef.current;
                 const elementRect = targetElement.getBoundingClientRect();
                 const containerRect = container.getBoundingClientRect();
 
-                // 要素を画面上部に表示するようにスクロール調整 (エディタの挙動に合わせる)
-                // 上端から40pxの位置に表示
-                const offset = (elementRect.top - containerRect.top) - 40;
-                container.scrollTop += offset;
+                // すでに十分に見えている（中央付近にある）場合はスクロールをスキップ（ガクつき防止）
+                const buffer = 100;
+                const isVisible = (
+                    elementRect.top >= containerRect.top + buffer &&
+                    elementRect.bottom <= containerRect.bottom - buffer
+                );
 
-                // ハイライト演出
+                if (!isVisible) {
+                    // 要素を画面上部から40pxの位置に表示
+                    const offset = (elementRect.top - containerRect.top) - 40;
+                    container.scrollTop += offset;
+                }
+
+                // ハイライト演出 (Teal)
                 targetElement.style.transition = 'none';
-                targetElement.style.backgroundColor = 'rgba(13, 148, 136, 0.2)'; // Teal tint
-                targetElement.style.outline = '2px solid rgba(13, 148, 136, 0.5)';
+                targetElement.style.backgroundColor = 'rgba(20, 184, 166, 0.25)';
+                targetElement.style.outline = '2px solid rgba(20, 184, 166, 0.4)';
                 targetElement.style.borderRadius = '2px';
 
                 // フェードアウト
                 setTimeout(() => {
-                    targetElement.style.transition = 'all 0.5s ease-out';
+                    targetElement.style.transition = 'all 0.6s ease-out';
                     targetElement.style.backgroundColor = 'transparent';
                     targetElement.style.outlineColor = 'transparent';
                 }, 400);
@@ -121,7 +138,7 @@ export const PreviewPane = forwardRef<PreviewPaneHandle, PreviewPaneProps>(
             // 少し遅延させてフラグをリセット
             setTimeout(() => {
                 isScrollingFromExternalRef.current = false;
-            }, 100);
+            }, 150);
         }, []);
 
         useImperativeHandle(ref, () => ({

@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { Noto_Sans_JP } from "next/font/google";
+import "@mantine/core/styles.css";
+import "@blocknote/core/fonts/inter.css";
+import "@blocknote/mantine/blocknoteStyles.css";
+import "./blocknote-mantine-custom.css";
 import "./globals.css";
 import { Providers } from "./providers";
 

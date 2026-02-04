@@ -92,8 +92,35 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
     useImperativeHandle(ref, () => ({ scrollToLine, moveCursorTo, clearDecorations, setValue: setEditorValue, hasFocus, focus }));
 
     useEffect(() => {
-      if (!editorRef.current) return;
-      if (value !== lastValueRef.current) setEditorValue(value);
+      const editor = editorRef.current;
+      if (!editor) return;
+
+      // Handle synchronization with external value prop
+      const newValue = value;
+      const currentVal = editor.getValue();
+
+      // 1. If already in sync with the actual editor content, just update refs
+      if (newValue === currentVal) {
+        lastValueRef.current = newValue;
+        return;
+      }
+
+      // 2. If the change matches what we last sent out, it's an echo. Skip it.
+      if (newValue === lastValueRef.current) {
+        return;
+      }
+
+      // 3. If the user is currently interacting (has focus), avoid forcing the value
+      // to prevent breaking IME composition, cursor jumps, or flicker.
+      // We prioritize the editor's internal state during user interaction.
+      if (editor.hasTextFocus()) {
+        // Note: We might want to handle "hard" external updates here in the future
+        // but for now, the editor state is the source of truth when focused.
+        return;
+      }
+
+      // 4. Force synchronization for external changes
+      setEditorValue(newValue);
     }, [value, setEditorValue]);
 
     useEffect(() => {
@@ -299,12 +326,29 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
       // We will listen to ModelContent changes. If inserted text is "@AI ", we trigger.
       // (This logic is added in onDidChangeModelContent below)
 
+      let scrollTimeout: NodeJS.Timeout | null = null;
       editor.onDidScrollChange(() => {
         if (isScrollingFromExternalRef.current) return;
-        if (onVisibleLineChange) {
-          const visibleRanges = editor.getVisibleRanges();
-          if (visibleRanges.length > 0) {
-            onVisibleLineChange(visibleRanges[0].startLineNumber);
+        if (scrollTimeout) clearTimeout(scrollTimeout);
+
+        scrollTimeout = setTimeout(() => {
+          if (onVisibleLineChange) {
+            const visibleRanges = editor.getVisibleRanges();
+            if (visibleRanges.length > 0) {
+              onVisibleLineChange(visibleRanges[0].startLineNumber);
+            }
+          }
+        }, 50); // Small debounce to prevent jitter
+      });
+
+      let cursorTimeout: NodeJS.Timeout | null = null;
+      editor.onDidChangeCursorPosition((e) => {
+        if (onVisibleLineChange && !isScrollingFromExternalRef.current) {
+          if (editor.hasTextFocus()) {
+            if (cursorTimeout) clearTimeout(cursorTimeout);
+            cursorTimeout = setTimeout(() => {
+              onVisibleLineChange(e.position.lineNumber);
+            }, 100); // 100ms debounce for highlight sync
           }
         }
       });
@@ -424,9 +468,19 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
             wordWrap: 'on',
             scrollBeyondLastLine: false,
             automaticLayout: true,
-            glyphMargin: true,
+            glyphMargin: false,
             padding: { top: 16, bottom: 16 },
-            lineDecorationsWidth: 10,
+            lineDecorationsWidth: 0,
+            overviewRulerLanes: 0,
+            overviewRulerBorder: false,
+            hideCursorInOverviewRuler: true,
+            scrollbar: {
+              vertical: 'visible',
+              horizontal: 'auto',
+              verticalScrollbarSize: 12,
+              verticalHasArrows: false,
+              useShadows: false,
+            },
             readOnly: readOnly ?? false,
             mouseWheelZoom: false,
           }}

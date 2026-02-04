@@ -20,7 +20,7 @@ interface DocumentState {
     searchQuery: string;
 
     // アクション
-    addDocument: (projectId: string, title: string, initialContent?: string) => Document;
+    addDocument: (projectId: string, title: string, initialContent?: string, mdSchema?: string) => Document;
     updateDocument: (id: string, content: string) => void;
     deleteDocument: (id: string) => void;
 
@@ -37,7 +37,7 @@ export const useDocumentStore = create<DocumentState>()(
             filterTag: null,
             searchQuery: '',
 
-            addDocument: (projectId, title, initialContent = '') => {
+            addDocument: (projectId, title, initialContent = '', mdSchema = '') => {
                 const id = uuidv4();
                 const now = new Date().toISOString();
 
@@ -50,6 +50,7 @@ export const useDocumentStore = create<DocumentState>()(
                     projectId,
                     title,
                     rawContent: content,
+                    mdSchema,
                     attributes: data, // maintain compatibility with frontmatter usage if needed
                     createdAt: now,
                     updatedAt: now,

@@ -8,8 +8,12 @@ import { useDocumentStore } from '@/stores/documentStore';
 import { syncBeforeModeChange } from '@/lib/editor/editorSync';
 import { GitBranch, Info, Settings, ChevronRight, Home, LayoutGrid, ShieldCheck, PenTool, Printer, FileText, FileCode2, Save, Download, Upload } from 'lucide-react';
 import { useCallback, useRef } from 'react';
+import { useLinea } from '@/hooks/useLinea';
+interface GlobalHeaderProps {
+    onSave?: () => void;
+}
 
-export function GlobalHeader() {
+export function GlobalHeader({ onSave }: GlobalHeaderProps) {
     const {
         viewMode,
         setViewMode,
@@ -23,13 +27,35 @@ export function GlobalHeader() {
         setCurrentDocument
     } = useAppStore();
 
-    const { mode, setMode } = useEditorStore();
+    const { mode, setMode, markdown } = useEditorStore();
     const { activeProjectId, projects, activeTeamId, teams } = useProjectStore();
-    const { addDocument } = useDocumentStore();
+    const { addDocument, updateDocument } = useDocumentStore();
+
+    const { addEvent, getLatestEvent } = useLinea(currentDocumentId);
 
     const activeProject = projects.find(p => p.id === activeProjectId);
     const activeTeam = teams.find(t => t.id === activeTeamId);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleSave = useCallback(() => {
+        if (onSave) {
+            onSave();
+            return;
+        }
+        if (currentDocumentId && markdown) {
+            // 1. Update Document Store
+            updateDocument(currentDocumentId, markdown);
+
+            // 2. Add History Event (Only if changed)
+            const latest = getLatestEvent();
+            if (!latest || latest.content !== markdown) {
+                addEvent(markdown, 'user_edit', latest?.id || null, '手動保存 (Header)');
+                console.log('Saved to local storage & history updated (Header)');
+            } else {
+                console.log('Saved (No content change, history skipped)');
+            }
+        }
+    }, [currentDocumentId, markdown, updateDocument, addEvent, getLatestEvent]);
 
     const handleHomeClick = useCallback(() => {
         setViewMode('hub');
@@ -126,7 +152,7 @@ export function GlobalHeader() {
                         <button
                             className="p-2 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600 rounded-md transition-colors mr-2"
                             title="保存 (Ctrl+S)"
-                            onClick={() => console.log('Save clicked')}
+                            onClick={handleSave}
                         >
                             <Save size={18} />
                         </button>
