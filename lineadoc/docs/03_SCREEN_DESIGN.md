@@ -1,96 +1,100 @@
 # LineaDoc: UI/UX & Screen Design Specification
 
 ## Overview
-ユーザー体験の向上を目指し、アプリケーションの構造を「チームとプロジェクトを中心とした階層型ナビゲーション」に再構築します。
+ユーザー体験を「書くことへの集中 (Focus)」と「必要な文脈へのアクセス (Context)」に最適化するため、「Hub & Spoke」型のナビゲーション構造を採用します。
+常設の左サイドバーを廃止し、コンテンツ領域を最大化します。
 
-## Core Concept: Project-Centric Navigation
-従来のフラットなドキュメントリストを廃止し、組織的な情報管理を実現します。
+## Core Concept: Hub & Spoke Navigation
+画面を「管理・探索 (Hub)」と「執筆・作業 (Spoke)」の2つのモードに明確に分けます。
 
-**Hierarchy:**
-1.  **Team**: 論理的な組織単位（例：開発チーム、マーケティング部）。
-2.  **Project**: 目的を持った作業単位（例：プロダクトドキュメント、議事録）。
-3.  **Document**: 実際のコンテンツ。
-
----
-
-## 1. Global Navigation (RailNav)
-画面左端の固定ナビゲーションバー（幅48px）。
-
-| Icon | Label | Behavior |
-| :--- | :--- | :--- |
-| **App Logo** | Home | サイドバーを「**プロジェクト一覧**」ビューに切り替える。現在のコンテキストをリセット。 |
-| (Spacer) | | |
-| **GitBranch** | History | **ドキュメント選択時のみ有効**。サイドバー（またはパネル）に選択中ドキュメントの「履歴 (Linea)」を表示。 |
-| **Info** | Attributes | **ドキュメント選択時のみ有効**。サイドバー（またはパネル）に「属性情報 (Project/Doc Info)」を表示。 |
-| (Spacer) | | |
-| **Settings** | Settings | チーム管理、アプリケーション設定モーダルを開く。 |
-| **Help** | Help | ヘルプモーダルを開く。 |
+1.  **Hub (Dashboard)**: チームやプロジェクトを俯瞰し、目的のドキュメントを探す場所。
+2.  **Spoke (Editor)**: ドキュメントを開き、執筆や編集を行う場所。
 
 ---
 
-## 2. Sidebar Views
-RailNavの選択やコンテキストに応じて切り替わるメインナビゲーションエリア（幅256px）。
+## 1. Hub View (Dashboard)
+アプリケーションのホーム画面。組織全体を俯瞰し、プロジェクトへアクセスします。
 
-### A. Project List View (Home)
-アプリ起動時やロゴクリック時に表示される最上位ビュー。
-
-- **Header**:
-    - **Team Selector**: ドロップダウンで表示するチームを切り替え。
-    - **Create Project Button**: 新規プロジェクト作成モーダルを開く。
-- **Content**:
-    - **Project Cards**: プロジェクト名、タグ、目的（概要）を表示したカードのリスト。
-    - **Grouping**: チームごとにグルーピング表示も検討。
-- **Action**:
-    - プロジェクトをクリック -> **Project Detail View** へ遷移。
-
-### B. Project Detail View
-特定のプロジェクト内に入った状態。
-
-- **Header**:
-    - **Back Button (<)**: プロジェクト一覧へ戻る。
-    - **Project Name**: 現在のプロジェクト名。
-    - **Project Menu**: プロジェクト属性編集（名前、メンバー、タグ）へのアクセス。
-- **Search/Filter**:
-    - プロジェクト内ドキュメントの検索ボックス。
-    - タグフィルタ。
-- **Content**:
-    - **Document List**: ドキュメントのリスト。作成日時や更新日時でソート。
-- **Footer**:
-    - **Create Document Button**: このプロジェクト内に新規ドキュメントを作成。
-- **Action**:
-    - ドキュメントをクリック -> メインエリアにエディタを表示し、**Document Context** を有効化。
-
-### C. Context Panels (Attributes / History)
-RailNavから呼び出される補助パネル（またはSidebarのオーバーレイ）。
-
-- **History Panel**:
-    - 選択中ドキュメントのLinea履歴（グラフ+リスト）を表示。
-    - バージョン比較、分岐作成、復元などの操作。
-- **Attributes Panel**:
-    - **Project Info**: 所属チーム名、プロジェクト名、メンバー、共通タグ（Read-onlyまたは編集可）。
-    - **Document Info**: ドキュメントステータス、個別タグ。
+### Layout Structure
+- **Team Tabs**:
+    - 画面上部または左上に配置。所属チーム（例：開発チーム、マーケティング部）を切り替えるタブ。
+- **Project Grid**:
+    - 選択されたチーム内のプロジェクトをカード形式でグリッド表示。
+    - **Project Card**:
+        - プロジェクト名、アイコン。
+        - ステータス（進行中、完了など）。
+        - 最終更新日、ドキュメント数。
+        - メンバーアバター（数名分）。
+- **Project Detail (Zoom-in)**:
+    - プロジェクトカードをクリックすると展開（または画面遷移）。
+    - **Document List**:
+        - テーブル形式またはリスト形式。
+        - カラム: タイトル、ステータス、更新日時、作成者。
+        - 検索・フィルタリング機能。
 
 ---
 
-## 3. Modals
+## 2. Spoke View (Editor)
+ドキュメントを開いた状態。執筆に集中できるクリーンなUI。
 
-### Create Project Modal
-- **Team**: 所属チームを選択（必須）。
-- **Name**: プロジェクト名（必須）。
-- **Description**: プロジェクトの目的・概要。
-- **Tags**: 初期タグ。
+### A. Header (Global Navigation)
+- **Breadcrumbs**:
+    - `Home(Dashboard) > Team A > Project X > Document Title`
+    - 階層構造を表示し、上位階層への戻り導線を確保。
+- **Document Title**:
+    - パンくずリストの末尾、またはその下段に配置。インライン編集可能。
+- **Toolbar (Right)**:
+    - **Actions**:
+        - **Save**: 手動保存ボタン（Ctrl+S対応）。
+        - **Export**: <Upload /> アイコン。MD/TXT/JSON形式での書き出し。
+        - **Import**: <Download /> アイコン。MD/TXTファイルの取り込み。
+    - **Editor Mode Toggle**: `Rich (WYSIWYG)` と `Code (Markdown)` の切り替え。
+    - **Context Toggles**: `History`, `Attributes`, `Graph`, `Quality (Governance)` などの右パネル開閉ボタン。
+    - **Settings**: アプリケーション設定へのアクセス。
+    - **Save Status**: 保存状態のインジケーター。
 
-### Create Document Modal
-- **Name**: ドキュメント名（必須）。
-- **Project**: 現在開いているプロジェクトが自動選択される（変更不可）。
-
----
-
-## 4. Main Area (Editor)
-- **Header**:
-    - パンくずリスト風表示: `Team / Project / Document`
-    - タイトル編集。
-    - バージョンバッジ。
-- **Body**:
+### B. Main Area (Canvas)
+- **Editor**:
+    - 画面中央に配置。
     - BlockNote (Rich Text) または Monaco (Code) エディタ。
-    - Split View (Diff比較時)。
+    - レスポンシブに幅を調整（読みやすい行長を維持）。
+
+### C. Right Context Panel (Inspector)
+ヘッダーのトグルボタンで開閉する、コンテキスト情報の表示領域。
+
+- **History Tab (Linea)**:
+    - リネージグラフ（Gitツリー風）とバージョンリスト。
+    - 60pxの広幅マージンにより、複雑な分岐も視認性を維持。
+    - 過去バージョンの閲覧、比較、復元、ブランチ作成。
+- **Attributes Tab**:
+    - `FrontmatterForm` を格納。
+    - ドキュメント属性（タグ、ステータス、優先度）の編集。
+- **Quality Tab (Governance)**:
+    - MDSCHEMA/Textlintによる校正結果の表示。
+    - 公文書ガイドラインへの準拠チェック。
+- **Graph Tab**:
+    - 関連ドキュメントのネットワークグラフ表示。
+
+### D. AI Assistant Integration
+- **@Mention**: エディタ内で `@AI` と入力すると「AIコマンドモーダル」が起動。
+- **Draft Generation**: 指示内容に基づき、新しいブランチ（案）を自動生成。
+
+---
+
+## 3. Transition & Interaction
+- **Dashboard -> Editor**:
+    - ドキュメントクリックでエディタへ遷移（Spokeへ移動）。
+- **Editor -> Dashboard**:
+    - パンくずリストの「Home」または「Project名」クリックでダッシュボードへ戻る（Hubへ移動）。
+- **Panel Interaction**:
+    - 右パネルは執筆の邪魔にならないよう、オーバーレイではなく**リサイズ（コンテンツ領域の幅縮小）**または**オーバーレイ（モバイル時）**を選択可能にする。
+
+---
+
+## 4. Modals
+- **Create Project Modal**: Dashboardから呼び出し。
+- **Create Document Modal**: Project Detailから呼び出し。
+- **Export Modal**: 出力形式（MD, TXT, JSON）の選択。
+- **Import Dialog**: ローカルファイル（MD, TXT）の取り込み。
+- **AI Instruction Modal**: AIへの執筆指示とブランチ戦略（続き作成/別案作成）の選択。
+- **Settings Modal**: Headerから呼び出し。

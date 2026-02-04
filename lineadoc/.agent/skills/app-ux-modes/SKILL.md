@@ -1,6 +1,6 @@
 ---
 name: app-ux-modes
-description: LineaDocの3つのワークモード（執筆・校正・履歴）を切り替えるUXパターンと画面遷移の定義。
+description: LineaDocの新しい「Hub & Spoke」ナビゲーションとワークモード定義。
 allowed-tools: [file_edit]
 meta:
   domain: frontend
@@ -8,38 +8,46 @@ meta:
   tech_stack: react, zustand
   phase: 2
   estimated_time: 45min
-  dependencies: [ui-layout-app, editor-state-store]
+  dependencies: [ui-layout-app, app-store]
 ---
 
 # このスキルでやること
 
-LineaDocのアプリケーション全体で使用する「3つのワークモード」を定義し、UIパターンを統一する。
+LineaDocの新しいUXモデル「Hub & Spoke」に基づき、アプリケーションの主要モードと画面遷移を定義する。
 
-# 設計思想
+# 設計思想: Focus & Context
 
-## 2つのワークモード
+従来のフラットなモード切替ではなく、階層的なナビゲーション構造を採用する。
 
-ユーザーの作業フェーズに応じて、メインレイアウトを切り替える。履歴（Linea）は執筆モードに統合される。
+## 1. ナビゲーションモード (マクロ)
 
-| モード | 目的 | メインエリア | 左パネル |
+| モード | 役割 | 画面構成 |
+|--------|------|----------|
+| **Hub (Dashboard)** | **探索と管理**。チーム・プロジェクトを俯瞰し、ドキュメントを探す。 | ダッシュボード (カードグリッド/リスト) |
+| **Spoke (Editor)** | **執筆と作業**。特定のドキュメントを開き、集中して作業する。 | エディタ + 右コンテキストパネル |
+
+## 2. ワークモード (ミクロ: Spoke内)
+
+エディタ画面内での表示形式の切り替え。
+
+| モード | 目的 | メインエリア | 右パネル |
 |--------|------|-------------|-------------|
-| **Write** | 執筆と履歴管理 | エディタ + Linea (Live Diff) | LineaPanel (履歴ツリー) |
-| **Proof** | 出力確認・印刷設定 | 印刷プレビュー | テンプレート選択 |
+| **Write** | 執筆・履歴管理 | エディタ (BlockNote / Monaco) | Linea / Attributes (開閉可) |
+| **Proof** | 出力確認 | 印刷プレビュー (A4) | テンプレート設定 |
 
-## 画面遷移イメージ
+---
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Header: [LineaDoc]  [Write✓] [Proof] [Lineage]   [👤 User] │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│                      【メインエリア】                        │
-│                                                             │
-│   Write モード   → BlockNote / Monaco エディタ              │
-│   Proof モード   → A4プレビュー + テンプレート選択           │
-│   Lineage モード → ツリービュー + Diffビュー                 │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+# 画面遷移イメージ
+
+```mermaid
+graph TD
+    Hub[Hub: Dashboard] -->|Click Doc| Spoke[Spoke: Editor]
+    Spoke -->|Click Breadcrumb| Hub
+    
+    subgraph Spoke Modes
+        Write -->|Toggle| Proof
+        Proof -->|Toggle| Write
+    end
 ```
 
 # 実装方法
@@ -49,114 +57,56 @@ LineaDocのアプリケーション全体で使用する「3つのワークモ�
 ```typescript
 import { create } from 'zustand';
 
+// マクロモードはURLルーティングで管理するため、ストアには持たない (Next.js App Router)
+// /dashboard -> Hub
+// /doc/[id]  -> Spoke
+
 export type WorkMode = 'write' | 'proof';
+export type RightPanelTab = 'history' | 'attributes' | 'graph' | null;
 
 interface AppState {
+  // Spoke内のワークモード
   workMode: WorkMode;
   setWorkMode: (mode: WorkMode) => void;
   
-  // サイドバー
-  isSidebarOpen: boolean;
-  toggleSidebar: () => void;
-}
-
-export const useAppStore = create<AppState>((set) => ({
-  workMode: 'write',
-  setWorkMode: (mode) => set({ workMode: mode }),
-  
-  isSidebarOpen: true,
-  toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
-}));
-```
-
-## モード切替UI: `WorkModeTabs.tsx`
-
-```tsx
-'use client';
-
-import { Edit3, Eye, GitBranch } from 'lucide-react';
-import { useAppStore, WorkMode } from '@/stores/appStore';
-
-const MODES: { id: WorkMode; label: string; icon: typeof Edit3 }[] = [
-  { id: 'write', label: '執筆', icon: Edit3 },
-  { id: 'proof', label: '出力', icon: Eye },
-  { id: 'lineage', label: '履歴', icon: GitBranch },
-];
-
-export function WorkModeTabs() {
-  const { workMode, setWorkMode } = useAppStore();
-
-  return (
-    <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
-      {MODES.map(({ id, label, icon: Icon }) => (
-        <button
-          key={id}
-          onClick={() => setWorkMode(id)}
-          className={`
-            flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium
-            transition-colors duration-150
-            ${workMode === id
-              ? 'bg-white text-teal-600 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-            }
-          `}
-        >
-          <Icon className="w-4 h-4" />
-          {label}
-        </button>
-      ))}
-    </div>
-  );
+  // 右パネルの状態
+  rightPanelTab: RightPanelTab;
+  setRightPanelTab: (tab: RightPanelTab) => void;
+  toggleRightPanel: (tab: RightPanelTab) => void;
 }
 ```
 
-## メインビュー切り替え: `MainArea.tsx`
+## コンポーネント構成
 
-```tsx
-'use client';
+### Hub (Dashboard)
+`src/app/page.tsx` (または `src/app/dashboard/page.tsx`)
+- `TeamTabs`: チーム切り替え
+- `ProjectGrid`: プロジェクトカード
+- `ProjectDialog`: プロジェクト作成
 
-import { useAppStore } from '@/stores/appStore';
-import { SplitEditorLayout } from '@/components/_features/editor/SplitEditorLayout';
-import { ProofView } from '@/components/_features/proof/ProofView';
-import { LineageView } from '@/components/_features/lineage/LineageView';
-
-export function MainArea() {
-  const { workMode } = useAppStore();
-
-  switch (workMode) {
-    case 'write':
-      return <SplitEditorLayout />;
-    case 'proof':
-      return <ProofView />;
-    case 'lineage':
-      return <LineageView />;
-    default:
-      return <SplitEditorLayout />;
-  }
-}
-```
+### Spoke (Editor)
+`src/app/doc/[id]/page.tsx` (または `src/components/_layout/SpokeLayout.tsx`)
+- `Header`: パンくずリスト、タイトル、設定ボタン
+- `MainArea`: `SplitEditorLayout` (Write) または `ProofView` (Proof)
+- `RightPanel`: `LineaPanel` (History), `FrontmatterForm` (Attributes)
 
 # ショートカットキー
 
 | キー | アクション |
 |------|----------|
-| `Ctrl + 1` | Write モードへ |
-| `Ctrl + 2` | Proof モードへ |
-| `Ctrl + 3` | Lineage モードへ |
-| `Ctrl + B` | サイドバー開閉 |
+| `Alt + 1` | Hub (Dashboard) へ戻る |
+| `Alt + 2` | Write モード (Editor) |
+| `Alt + 3` | Proof モード (Preview) |
+| `Alt + H` | Historyパネル開閉 |
+| `Alt + I` | Attributesパネル開閉 |
 
 # 禁止事項
 
-- **モード切替でデータを失う**: 常にストアを経由し、切替前に同期する。
-- **3つ以上のモードを追加**: 複雑になりすぎるため、当面は3つに固定。
+- **モード切替でのデータ損失**: ページ遷移が発生する場合でも、オートセーブやローカルステートの同期を確実に行う。
+- **深い階層**: ダッシュボードから2クリック以内でエディタに到達できるようにする。
 
 # 完了条件
 
-- [ ] `appStore.ts` が作成されている
-- [ ] `WorkModeTabs.tsx` が作成されている
-- [ ] `MainArea.tsx` がモード別ビューを切り替える
-- [ ] ショートカットキーが動作する
-
-# 次のスキル
-
-- `lineage-visualization`: Lineageモードの詳細実装
+- [ ] `appStore.ts` が新しいモード定義に対応している。
+- [ ] ダッシュボードとエディタのレイアウトが分離されている。
+- [ ] 右パネルが開閉可能で、コンテンツがリサイズされる。

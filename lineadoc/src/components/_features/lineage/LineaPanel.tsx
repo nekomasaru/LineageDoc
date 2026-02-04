@@ -47,7 +47,7 @@ const eventConfig: Record<string, any> = {
 
 const ROW_HEIGHT = 64; // px
 const COL_WIDTH = 32; // px (24 -> 32に拡張して干渉を低減)
-const LEFT_MARGIN = 20; // px
+const LEFT_MARGIN = 60; // px
 const CIRCLE_RADIUS = 10; // (5 -> 10に拡大して文字を入れやすくする)
 
 export function LineaPanel({

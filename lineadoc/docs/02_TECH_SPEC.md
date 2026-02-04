@@ -5,9 +5,10 @@
 - **Frontend**: Next.js 16.1.6 (App Router)
 - **Language**: TypeScript 5
 - **Styling**: Tailwind CSS 4
-- **Editor**: `@monaco-editor/react` ^4.7.0
-- **Markdown**: `react-markdown` ^10.1.0, `remark-gfm` ^4.0.1
-- **Layout**: `react-resizable-panels` ^4.5.9
+- **Editor**: `@monaco-editor/react` ^4.7.0, `@blocknote/react` ^0.22.0
+- **UI Framework**: `@blocknote/mantine` (Rich Editor UI)
+- **Markdown**: `react-markdown` ^10.1.0, `remark-gfm` ^4.0.1, `gray-matter` (Frontmatter)
+- **Layout**: `react-resizable-panels` ^2.0.0
 - **Graph**: `react-force-graph-2d` ^1.29.0
 - **Icons**: `lucide-react`
 
@@ -36,28 +37,27 @@
       globals.css     # Global styles & Tailwind directives
     /components
       /_features
+        /ai
+          AiInstructionModal.tsx # AI command trigger modal
         /editor
           MonacoWrapper.tsx  # Editor component with custom scroll handling
+          BlockNoteEditorPane.tsx # WYSIWYG editor
+          SplitEditorLayout.tsx # Layout switcher (Rich/Code)
+        /export
+          ExportModal.tsx    # Format selection for export
         /preview
           PreviewPane.tsx    # Markdown preview with A4 paper style
         /lineage
           LineagePanel.tsx   # History visualization (SVG Graph + List)
-        /welcome
-          WelcomeScreen.tsx  # Initial launch screen
-      /_shared
-        AlertDialog.tsx      # Generic alert dialog
-        BranchCommentModal.tsx # Branch creation modal
-        InputModal.tsx       # Generic input modal (e.g., Comment edit)
-        ConfirmModal.tsx     # Generic confirmation modal (e.g., Reset)
-        Logo.tsx             # SVG Logo Component
-        GuideModal.tsx       # Help/Manual Modal
-    /hooks
-      useLineage.ts          # History management logic & Persistence
+    /stores
+      appStore.ts           # Global UI state (Hub/Spoke/Modals)
+      documentStore.ts      # Metadata-driven document management
+      projectStore.ts       # Team/Project hierarchy
+      editorStore.ts        # Markdown & Mode state
+      qualityStore.ts       # Governance check results
     /lib
-      types.ts               # Shared type definitions
       lineage-utils.ts       # Graph layout algorithms
-      LanguageContext.tsx    # i18n Logic
-      defaultMarkdown.ts     # Initial content templates
+      editor/editorSync.ts   # Sync logic between Rich and Code
 ```
 
 ## Data Models
@@ -134,9 +134,17 @@ Bi-directional scroll synchronization ensures the editor and preview pane stay a
 - **Logic**: Encapsulated in `useLineage` hook.
 - **Resilience**: Automatically initializes with a default event if storage is empty.
 
-### 5. Future AI Integration (Planned)
-- **Supabase**: Cloud persistence and vector store for knowledge base.
-- **Vertex AI**: Intelligent suggestions and automated summarization.
+### 5. Future AI & Governance Integration (Phase 4-5)
+
+#### Quality & Governance (Currently Implementing)
+- **MDSCHEMA**: 公文書固有の構造チェック（章立て、メタデータ必須項目）。
+- **Textlint/Vale**: 用語統一、不適切な表現の自動検出。
+- **AIGovernance**: 指示内容がガイドラインに沿っているかの事前検証。
+
+#### AI Architecture
+- **Knowledge Base**: Supabase Vector + Vertex AI Search による関連文書の検索。
+- **Lineage Evolution**: AIによる変更履歴の自動要約と、分岐案の自動生成。
+- **Template System**: 業務別の公文書テンプレート管理。
 
 ### 6. External Components & Licensing
-- **shadcn/ui**: If introduced, ensure compliance with the MIT License by maintaining license headers and providing appropriate attribution in the application's documentation or "About" section.
+- **shadcn/ui**: 導入時は MIT License を遵守し、ライセンス表記を維持すること。

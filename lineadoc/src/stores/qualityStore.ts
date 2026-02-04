@@ -19,11 +19,13 @@ export interface QualityIssue {
 interface QualityState {
     issues: QualityIssue[];
     isChecking: boolean;
+    highlightedIssue: QualityIssue | null;
 
     // アクション
     setIssues: (issues: QualityIssue[]) => void;
     clearIssues: () => void;
     setChecking: (isChecking: boolean) => void;
+    setHighlightedIssue: (issue: QualityIssue | null) => void;
 
     // チェック実行（簡易バリデーター）
     runValidation: (content: string, frontmatter: any) => void;
@@ -32,10 +34,12 @@ interface QualityState {
 export const useQualityStore = create<QualityState>((set) => ({
     issues: [],
     isChecking: false,
+    highlightedIssue: null,
 
     setIssues: (issues) => set({ issues }),
     clearIssues: () => set({ issues: [] }),
     setChecking: (isChecking) => set({ isChecking }),
+    setHighlightedIssue: (issue) => set({ highlightedIssue: issue }),
 
     runValidation: async (content, frontmatter) => {
         set({ isChecking: true });

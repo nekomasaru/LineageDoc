@@ -127,10 +127,10 @@ interface LineageGraphProps {
   onVersionClick?: (version: Version) => void;
 }
 
-const NODE_RADIUS = 8;
-const NODE_SPACING_Y = 60;
-const NODE_SPACING_X = 80;
-const PADDING = 40;
+const NODE_RADIUS = 10;
+const NODE_SPACING_Y = 64;
+const NODE_SPACING_X = 32;
+const LEFT_MARGIN = 60;
 
 export function LineageGraph({
   versions,
