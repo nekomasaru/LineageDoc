@@ -1,0 +1,12 @@
+version: 1
+rules:
+  - expected: 富
+    pattern: 冨
+  - expected: 辺
+    pattern: 邊
+  - expected: 靭
+    pattern: 靱
+  - expected: まま
+    pattern: 儘
+  - expected: 竜
+    pattern: 龍

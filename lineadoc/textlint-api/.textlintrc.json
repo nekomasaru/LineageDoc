@@ -1,0 +1,25 @@
+{
+    "rules": {
+        "preset-ja-technical-writing": {
+            "sentence-length": {
+                "max": 100
+            },
+            "no-exclamation-question-mark": false,
+            "ja-no-weak-phrase": false,
+            "ja-no-successive-word": {
+                "severity": "warning"
+            },
+            "ja-hiragana-keishikimeishi": true,
+            "ja-no-mixed-period": false
+        },
+        "joyo-kanji": false,
+        "prh": {
+            "rulePaths": [
+                "./prh-rules/gendai-kanazukai.yml",
+                "./prh-rules/joyo-kanji-gai.yml",
+                "./prh-rules/hyoki-yure.yml",
+                "./prh-rules/tech-terms.yml"
+            ]
+        }
+    }
+}

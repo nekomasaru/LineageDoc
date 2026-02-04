@@ -1,0 +1,37 @@
+version: 1
+rules:
+  # ========================================
+  # IT・技術用語の表記統一
+  # ========================================
+
+  - expected: JavaScript
+    pattern: /javascript|Java Script/
+    prh: 「JavaScript」と表記してください（固有名詞）
+
+  - expected: TypeScript
+    pattern: /typescript|Type Script/
+    prh: 「TypeScript」と表記してください
+
+  - expected: React
+    pattern: /react|ReactJS/
+    prh: 「React」と表記してください
+
+  - expected: Node.js
+    pattern: /NodeJS|node.js|nodejs/
+    prh: 「Node.js」と表記してください
+
+  - expected: Google Cloud
+    pattern: /GCP|Google Cloud Platform/
+    prh: 「Google Cloud」が正式名称です（2021年4月変更）
+
+  - expected: GitHub
+    pattern: /Github|github/
+    prh: 「GitHub」と表記してください（固有名詞）
+
+  - expected: PostgreSQL
+    pattern: /Postgresql|postgres/
+    prh: 「PostgreSQL」と表記してください
+
+  - expected: REST API
+    pattern: /RESTful API|restAPI/
+    prh: 「REST API」と表記してください
