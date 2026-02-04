@@ -9,6 +9,7 @@
 
 import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useProjectStore } from '@/stores/projectStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import { useAppStore } from '@/stores/appStore';
 import { useEditorStore } from '@/stores/editorStore';
@@ -27,9 +28,10 @@ const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
 
 export function NetworkGraph() {
     const documents = useDocumentStore(state => state.documents);
-    const { setFilterProject, setFilterTag, setSearchQuery } = useDocumentStore();
+    const { setFilterProjectId, setFilterTag, setSearchQuery } = useDocumentStore();
     const { setCurrentDocument } = useAppStore();
     const { loadDocument } = useEditorStore();
+    const { projects } = useProjectStore();
 
     const graphRef = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -57,29 +59,33 @@ export function NetworkGraph() {
     }, []);
 
     // ノードクリック時のハンドラ
-    const handleNodeClick = useCallback((node: GraphNode) => {
+    const handleNodeClick = useCallback((node: any, event: any) => {
         if (node.type === 'document') {
             // ドキュメントを開く
             const docId = node.id.replace('doc-', '');
             const doc = documents.find(d => d.id === docId);
             if (doc) {
                 setCurrentDocument(doc.id, doc.title);
-                loadDocument(doc.content);
+                loadDocument(doc.rawContent);
             }
         } else if (node.type === 'project') {
             // プロジェクトでフィルタ
             const projectName = node.label;
-            setFilterProject(projectName);
-            setFilterTag(null);
-            setSearchQuery('');
+            // 名前からプロジェクトIDを探す (一致しなければ無視)
+            const project = projects.find(p => p.name === projectName);
+            if (project) {
+                setFilterProjectId(project.id);
+                setFilterTag(null);
+                setSearchQuery('');
+            }
         } else if (node.type === 'tag') {
             // タグでフィルタ
             const tagName = node.label.replace('#', '');
             setFilterTag(tagName);
-            setFilterProject(null);
+            setFilterProjectId(null);
             setSearchQuery('');
         }
-    }, [documents, setCurrentDocument, loadDocument, setFilterProject, setFilterTag, setSearchQuery]);
+    }, [documents, setCurrentDocument, loadDocument, setFilterProjectId, setFilterTag, setSearchQuery, projects]);
 
     // ノードのカスタム描画
     const nodeCanvasObject = useCallback((node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {

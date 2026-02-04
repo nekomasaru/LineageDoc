@@ -64,7 +64,11 @@ export function LineaPanel({
 }: LineaPanelProps) {
     const { t } = useLanguage();
     // グラフレイアウト計算
-    const { nodes, links, maxColumn } = useMemo(() => calculateGraphLayout(events), [events]);
+    const { nodes, links, maxColumn } = useMemo(() => {
+        const result = calculateGraphLayout(events);
+        console.log('[LineaPanel] Events:', events.length, 'Nodes:', result.nodes.length, 'Links:', result.links.length);
+        return result;
+    }, [events]);
 
     // イベントが子を持つかどうかの判定用マップ
     const hasChildrenMap = useMemo(() => {
@@ -141,7 +145,7 @@ export function LineaPanel({
                     >
                         {/* SVG Layer (Background) */}
                         <svg
-                            className="absolute top-0 left-0 pointer-events-none z-10"
+                            className="absolute top-0 left-0 pointer-events-none z-30"
                             width={Math.max(graphWidth, 50)}
                             height={totalHeight}
                         >

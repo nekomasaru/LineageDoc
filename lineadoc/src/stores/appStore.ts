@@ -21,6 +21,18 @@ export type WorkMode = 'write' | 'proof' | 'lineage';
 /**
  * アプリケーションストアの状態インターフェース
  */
+/**
+ * サイドバーのビューモード
+ * - 'project_list': プロジェクト一覧（ホーム）
+ * - 'project_detail': プロジェクト詳細（ドキュメント一覧）
+ * - 'history': 履歴パネル（ドキュメント選択時）
+ * - 'attributes': 属性パネル（ドキュメント選択時）
+ */
+export type SidebarView = 'project_list' | 'project_detail' | 'history' | 'attributes';
+
+/**
+ * アプリケーションストアの状態インターフェース
+ */
 interface AppState {
     // ===== ワークモード =====
     workMode: WorkMode;
@@ -28,8 +40,10 @@ interface AppState {
 
     // ===== サイドバー =====
     isSidebarOpen: boolean;
+    activeSidebarView: SidebarView; // 現在のサイドバー表示
     toggleSidebar: () => void;
     setSidebarOpen: (open: boolean) => void;
+    setActiveSidebarView: (view: SidebarView) => void;
 
     // ===== 現在のドキュメント =====
     currentDocumentId: string | null;
@@ -49,8 +63,10 @@ export const useAppStore = create<AppState>()(
 
             // ===== サイドバー =====
             isSidebarOpen: true,
+            activeSidebarView: 'project_list', // デフォルトはプロジェクト一覧
             toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
             setSidebarOpen: (open) => set({ isSidebarOpen: open }),
+            setActiveSidebarView: (view) => set({ activeSidebarView: view, isSidebarOpen: true }),
 
             // ===== 現在のドキュメント =====
             currentDocumentId: null,
@@ -67,3 +83,4 @@ export const useAppStore = create<AppState>()(
  */
 export const selectWorkMode = (state: AppState) => state.workMode;
 export const selectIsSidebarOpen = (state: AppState) => state.isSidebarOpen;
+export const selectActiveSidebarView = (state: AppState) => state.activeSidebarView;

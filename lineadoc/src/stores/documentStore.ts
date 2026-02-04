@@ -2,43 +2,29 @@
  * documentStore.ts
  * 
  * メタデータ駆動型のドキュメント管理ストア
- * フラットなドキュメントリストを持ち、タグやプロジェクトIDでフィルタリングを行う
+ * Phase 4: プロジェクトIDによる厳格なフィルタリングへ移行
  */
 
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import matter from 'gray-matter';
-
-export interface Document {
-    id: string;
-    title: string;
-    content: string; // メタデータ抽出用（実際は重いので要注意だが、今回はローカルなので許容）
-    updatedAt: string;
-    // キャッシュされたメタデータ
-    frontmatter: {
-        project?: string;
-        tags?: string[];
-        [key: string]: any;
-    };
-}
+import { Document } from '@/lib/types';
 
 interface DocumentState {
     documents: Document[];
 
     // フィルタ状態
-    filterProject: string | null;
+    filterProjectId: string | null;
     filterTag: string | null;
     searchQuery: string;
 
-    // Computed (Stateとして保持せず、getterで計算するか、専用のselectorを用意する)
-
     // アクション
-    addDocument: (title: string, initialContent?: string) => Document;
+    addDocument: (projectId: string, title: string, initialContent?: string) => Document;
     updateDocument: (id: string, content: string) => void;
     deleteDocument: (id: string) => void;
 
-    setFilterProject: (project: string | null) => void;
+    setFilterProjectId: (projectId: string | null) => void;
     setFilterTag: (tag: string | null) => void;
     setSearchQuery: (query: string) => void;
 }
@@ -47,33 +33,26 @@ export const useDocumentStore = create<DocumentState>()(
     persist(
         (set, get) => ({
             documents: [],
-            filterProject: null,
+            filterProjectId: null,
             filterTag: null,
             searchQuery: '',
 
-            addDocument: (title, initialContent = '') => {
+            addDocument: (projectId, title, initialContent = '') => {
                 const id = uuidv4();
                 const now = new Date().toISOString();
-                // 初期コンテンツにフロントマターを含める
-                // デフォルトでは「無題のドキュメント」プロジェクトなし
-                const content = initialContent || `---
-title: ${title}
-project: 
-tags: []
-status: draft
----
-# ${title}
 
-ここに文書を入力してください。`;
-
+                // Markdownパース (将来的な属性抽出のため)
+                const content = initialContent || `# ${title}\n\nここに文書を入力してください。`;
                 const { data } = matter(content);
 
                 const newDoc: Document = {
                     id,
+                    projectId,
                     title,
-                    content,
+                    rawContent: content,
+                    attributes: data, // maintain compatibility with frontmatter usage if needed
+                    createdAt: now,
                     updatedAt: now,
-                    frontmatter: data,
                 };
 
                 set((state) => ({
@@ -93,20 +72,19 @@ status: draft
                             doc.id === id
                                 ? {
                                     ...doc,
-                                    content,
+                                    rawContent: content,
                                     updatedAt: now,
                                     title: data.title || doc.title, // FMのタイトルを優先反映
-                                    frontmatter: data
+                                    attributes: { ...doc.attributes, ...data }
                                 }
                                 : doc
                         ),
                     }));
                 } catch (e) {
                     console.error('[DocumentStore] Parse error during update:', e);
-                    // エラー時はcontentとtimeだけ更新
                     set((state) => ({
                         documents: state.documents.map((doc) =>
-                            doc.id === id ? { ...doc, content, updatedAt: now } : doc
+                            doc.id === id ? { ...doc, rawContent: content, updatedAt: now } : doc
                         ),
                     }));
                 }
@@ -118,38 +96,63 @@ status: draft
                 }));
             },
 
-            setFilterProject: (project) => set({ filterProject: project }),
+            setFilterProjectId: (projectId) => set({ filterProjectId: projectId }),
             setFilterTag: (tag) => set({ filterTag: tag }),
             setSearchQuery: (query) => set({ searchQuery: query }),
         }),
         {
-            name: 'lineadoc-documents-v2', // v1 (projectStore) と区別
+            name: 'lineadoc-documents-v2',
             storage: createJSONStorage(() => localStorage),
+            onRehydrateStorage: () => (state) => {
+                if (!state) return;
+
+                // Migration: Ensure all documents have a projectId
+                // 以前のデータ形式からの移行
+                let hasChanges = false;
+                const migratedDocs = state.documents.map((doc: any) => {
+                    if (!doc.projectId) {
+                        hasChanges = true;
+                        return {
+                            ...doc,
+                            projectId: 'default-project', // Default project ID defined in projectStore
+                            rawContent: doc.content || doc.rawContent, // Rename content to rawContent if needed
+                            attributes: doc.frontmatter || doc.attributes // Rename frontmatter to attributes
+                        };
+                    }
+                    return doc;
+                });
+
+                if (hasChanges) {
+                    console.log('[DocumentStore] Migrated legacy documents to default-project');
+                    state.documents = migratedDocs;
+                }
+            }
         }
     )
 );
 
 // セレクタ（フィルタリングロジック）
 export const selectFilteredDocuments = (state: DocumentState) => {
-    const { documents, filterProject, filterTag, searchQuery } = state;
+    const { documents, filterProjectId, filterTag, searchQuery } = state;
 
     return documents.filter(doc => {
-        // プロジェクトフィルタ
-        if (filterProject && doc.frontmatter.project !== filterProject) {
+        // プロジェクトフィルタ (必須)
+        // Project navigator select -> setFilterProjectId
+        if (filterProjectId && doc.projectId !== filterProjectId) {
             return false;
         }
 
-        // タグフィルタ
-        if (filterTag && !doc.frontmatter.tags?.includes(filterTag)) {
+        // Tag Filter
+        if (filterTag && !doc.attributes?.tags?.includes(filterTag)) {
             return false;
         }
 
-        // 検索クエリ (タイトル or 本文)
+        // Search Query
         if (searchQuery) {
             const lowerQuery = searchQuery.toLowerCase();
             return (
                 doc.title.toLowerCase().includes(lowerQuery) ||
-                doc.content.toLowerCase().includes(lowerQuery)
+                (doc.rawContent && doc.rawContent.toLowerCase().includes(lowerQuery))
             );
         }
 
@@ -157,23 +160,13 @@ export const selectFilteredDocuments = (state: DocumentState) => {
     });
 };
 
-// ユニークなプロジェクト一覧を取得
-export const selectUniqueProjects = (state: DocumentState) => {
-    const projects = new Set<string>();
-    state.documents.forEach(doc => {
-        if (doc.frontmatter.project) {
-            projects.add(doc.frontmatter.project);
-        }
-    });
-    return Array.from(projects).sort();
-};
-
-// ユニークなタグ一覧を取得 (出現数順など高度なことは一旦なし)
+// ユニークなタグ一覧を取得
 export const selectUniqueTags = (state: DocumentState) => {
     const tags = new Set<string>();
     state.documents.forEach(doc => {
-        if (Array.isArray(doc.frontmatter.tags)) {
-            doc.frontmatter.tags.forEach(tag => tags.add(tag));
+        const docTags = doc.attributes?.tags;
+        if (Array.isArray(docTags)) {
+            docTags.forEach(tag => tags.add(tag));
         }
     });
     return Array.from(tags).sort();

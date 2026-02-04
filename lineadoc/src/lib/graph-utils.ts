@@ -4,7 +4,7 @@
  * DocumentStore のデータからグラフ用のノード・リンクを生成するユーティリティ
  */
 
-import { Document } from '@/stores/documentStore';
+import { Document } from '@/lib/types';
 
 export interface GraphNode {
     id: string;
@@ -45,13 +45,14 @@ export function buildGraphData(documents: Document[]): GraphData {
         });
 
         // プロジェクトを収集
-        if (doc.frontmatter.project) {
-            projectSet.add(doc.frontmatter.project);
+        // DocumentStore migration ensures attributes exists, but we check for safety
+        if (doc.attributes?.project) {
+            projectSet.add(doc.attributes.project);
         }
 
         // タグを収集
-        if (Array.isArray(doc.frontmatter.tags)) {
-            doc.frontmatter.tags.forEach(tag => tagSet.add(tag));
+        if (Array.isArray(doc.attributes?.tags)) {
+            doc.attributes.tags.forEach((tag: string) => tagSet.add(tag));
         }
     });
 
@@ -82,17 +83,17 @@ export function buildGraphData(documents: Document[]): GraphData {
         const docNodeId = `doc-${doc.id}`;
 
         // ドキュメント → プロジェクト
-        if (doc.frontmatter.project) {
+        if (doc.attributes?.project) {
             links.push({
                 source: docNodeId,
-                target: `prj-${doc.frontmatter.project}`,
+                target: `prj-${doc.attributes.project}`,
                 type: 'belongs_to_project',
             });
         }
 
         // ドキュメント → タグ
-        if (Array.isArray(doc.frontmatter.tags)) {
-            doc.frontmatter.tags.forEach(tag => {
+        if (Array.isArray(doc.attributes?.tags)) {
+            doc.attributes.tags.forEach((tag: string) => {
                 links.push({
                     source: docNodeId,
                     target: `tag-${tag}`,
@@ -102,8 +103,8 @@ export function buildGraphData(documents: Document[]): GraphData {
         }
 
         // ドキュメント → 参照先ドキュメント (references フィールドがあれば)
-        if (Array.isArray(doc.frontmatter.references)) {
-            doc.frontmatter.references.forEach((refId: string) => {
+        if (Array.isArray(doc.attributes?.references)) {
+            doc.attributes.references.forEach((refId: string) => {
                 // 参照先が存在するかチェック
                 const targetDoc = documents.find(d => d.id === refId);
                 if (targetDoc) {

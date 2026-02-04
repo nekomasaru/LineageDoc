@@ -7,42 +7,64 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { Tag, Folder, FileText, Plus, Search, X, Hash, LayoutGrid, Trash2 } from 'lucide-react';
-import { useDocumentStore, selectFilteredDocuments, selectUniqueProjects, selectUniqueTags } from '@/stores/documentStore';
+import { useDocumentStore, selectFilteredDocuments, selectUniqueTags } from '@/stores/documentStore';
 import { useAppStore } from '@/stores/appStore';
 import { useEditorStore } from '@/stores/editorStore';
+import { useProjectStore } from '@/stores/projectStore';
 
 export function DocumentNavigator() {
     const {
         documents,
-        filterProject,
+        filterProjectId,
         filterTag,
         searchQuery,
         addDocument,
         deleteDocument,
-        setFilterProject,
+        setFilterProjectId,
         setFilterTag,
         setSearchQuery
     } = useDocumentStore();
 
     const { currentDocumentId, setCurrentDocument } = useAppStore();
     const { loadDocument } = useEditorStore();
+    const { activeProjectId, projects } = useProjectStore();
 
     // フィルタリング済みドキュメント
-    const filteredDocs = useDocumentStore(useShallow(selectFilteredDocuments));
+    const baseFilteredDocs = useDocumentStore(useShallow(selectFilteredDocuments));
+
+    // プロジェクトによる追加フィルタリング（二重適用になっているが表示制御のため）
+    const activeProject = activeProjectId ? projects.find(p => p.id === activeProjectId) : null;
+
+    // もし documentStore 側で filterProjectId がセットされていれば、selectFilteredDocuments ですでに絞り込まれているはず。
+    // しかし、RailNavでプロジェクトを選択したとき、documentStore.filterProjectId も同期させる必要があるか、
+    // あるいは DocumentNavigator 内で activeProjectId を filterProjectId にセットする効果を持たせるか。
+
+    // ここでは activeProjectId が変更されたら documentStore のフィルタも更新する
+    useEffect(() => {
+        setFilterProjectId(activeProjectId);
+    }, [activeProjectId, setFilterProjectId]);
+
+    const filteredDocs = baseFilteredDocs;
+
     // ユニークなプロジェクトとタグ
-    const projects = useDocumentStore(useShallow(selectUniqueProjects));
+    // projects は projectStore から取得するので selectUniqueProjects は不要
     const tags = useDocumentStore(useShallow(selectUniqueTags));
 
     const handleCreateDocument = () => {
         const title = prompt('新しいドキュメントの名前を入力してください');
         if (title) {
-            // 現在のフィルタ状態を引き継いだ初期コンテンツを作成することも可能だが
-            // 一旦はシンプルに作成
-            const newDoc = addDocument(title);
-            handleSelectDocument(newDoc.id, newDoc.title, newDoc.content);
+            // プロジェクトIDを渡して作成
+            const newDoc = addDocument(activeProjectId || '', title); // TODO: documentStore.addDocument need update to accept projectId
+            // StoreがまだprojectId引数を受け取っていない場合はあとで修正が必要
+            // 一旦既存のaddDocumentの第1引数が `projectId` になるように documentStore も修正が必要
+
+            // NOTE: documentStore.ts の addDocument は (projectId, title, initialContent) に変更済み
+            // 呼び出し側もそれに合わせる
+
+            handleSelectDocument(newDoc.id, newDoc.title, newDoc.rawContent);
         }
     };
 
@@ -60,6 +82,9 @@ export function DocumentNavigator() {
             }
         }
     };
+
+    // フィルタリング中のプロジェクト名取得
+    const filteringProject = filterProjectId ? projects.find(p => p.id === filterProjectId) : null;
 
     return (
         // Force hydration sync
@@ -87,13 +112,13 @@ export function DocumentNavigator() {
                 </div>
 
                 {/* アクティブフィルタ表示 */}
-                {(filterProject || filterTag) && (
+                {(filterProjectId || filterTag) && (
                     <div className="flex flex-wrap gap-1.5">
-                        {filterProject && (
+                        {filteringProject && (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-100 text-cyan-700 text-xs rounded-full font-medium">
                                 <Folder className="w-3 h-3" />
-                                {filterProject}
-                                <button onClick={() => setFilterProject(null)} className="hover:text-cyan-900"><X className="w-3 h-3" /></button>
+                                {filteringProject.name}
+                                <button onClick={() => setFilterProjectId(null)} className="hover:text-cyan-900"><X className="w-3 h-3" /></button>
                             </span>
                         )}
                         {filterTag && (
@@ -109,7 +134,7 @@ export function DocumentNavigator() {
 
             <div className="flex-1 overflow-y-auto">
                 {/* フィルタ未選択時はカテゴリ一覧を表示 */}
-                {!filterProject && !filterTag && !searchQuery ? (
+                {!filterProjectId && !filterTag && !searchQuery ? (
                     <div className="p-2 space-y-4">
                         {/* プロジェクト一覧 */}
                         <div>
@@ -122,12 +147,12 @@ export function DocumentNavigator() {
                                 <div className="space-y-0.5">
                                     {projects.map(prj => (
                                         <button
-                                            key={prj}
-                                            onClick={() => setFilterProject(prj)}
+                                            key={prj.id}
+                                            onClick={() => setFilterProjectId(prj.id)}
                                             className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-200 rounded-md text-left transition-colors"
                                         >
                                             <Folder className="w-4 h-4 text-cyan-600 opacity-70" />
-                                            {prj}
+                                            {prj.name}
                                         </button>
                                     ))}
                                 </div>
@@ -174,7 +199,7 @@ export function DocumentNavigator() {
                             <div className="px-4 py-8 text-center text-slate-400 text-sm">
                                 <p>該当するドキュメントが<br />見つかりません</p>
                                 <button
-                                    onClick={() => { setFilterProject(null); setFilterTag(null); setSearchQuery(''); }}
+                                    onClick={() => { setFilterProjectId(null); setFilterTag(null); setSearchQuery(''); }}
                                     className="mt-2 text-cyan-600 hover:underline text-xs"
                                 >
                                     フィルタを解除
@@ -184,7 +209,7 @@ export function DocumentNavigator() {
                             filteredDocs.map(doc => (
                                 <div
                                     key={doc.id}
-                                    onClick={() => handleSelectDocument(doc.id, doc.title, doc.content)}
+                                    onClick={() => handleSelectDocument(doc.id, doc.title, doc.rawContent)}
                                     className={`
                                         group relative flex flex-col gap-1 py-2 px-4 cursor-pointer border-l-2
                                         ${currentDocumentId === doc.id
@@ -204,12 +229,20 @@ export function DocumentNavigator() {
 
                                     {/* メタデータバッジ */}
                                     <div className="flex flex-wrap gap-1 ml-5.5">
-                                        {doc.frontmatter.project && (
+                                        {/* Project Name display (using getProject from ProjectStore or resolve lazily?) 
+                                            For now, just showing doc.frontmatter.project if exists, or try resolving projectId 
+                                        */}
+                                        {(doc.projectId && projects.find(p => p.id === doc.projectId)) ? (
                                             <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded border border-slate-200 truncate max-w-[80px]">
-                                                {doc.frontmatter.project}
+                                                {projects.find(p => p.id === doc.projectId)?.name}
                                             </span>
-                                        )}
-                                        {Array.isArray(doc.frontmatter.tags) && doc.frontmatter.tags.slice(0, 2).map(tag => (
+                                        ) : (doc.attributes?.project && (
+                                            <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded border border-slate-200 truncate max-w-[80px]">
+                                                {doc.attributes.project}
+                                            </span>
+                                        ))}
+
+                                        {Array.isArray(doc.attributes?.tags) && doc.attributes.tags.slice(0, 2).map((tag: string) => (
                                             <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-400 rounded border border-indigo-100">
                                                 #{tag}
                                             </span>

@@ -17,7 +17,7 @@ import { FileText, Save, RotateCcw, GitBranch } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useLinea } from '@/hooks/useLinea';
-import { RailNav, NavItem } from '@/components/_shared/RailNav';
+import { RailNav } from '@/components/_shared/RailNav';
 import { WorkModeTabs } from '@/components/_shared/WorkModeTabs';
 import { Logo } from '@/components/_shared/Logo';
 import { Panel, Group as PanelGroup, Separator } from 'react-resizable-panels';
@@ -33,6 +33,8 @@ import { ConfirmModal } from '@/components/_shared/ConfirmModal';
 import { InputModal } from '@/components/_shared/InputModal';
 import { CreateDocumentModal } from '@/components/_features/document/CreateDocumentModal';
 import { AiInstructionModal, BranchStrategy } from '@/components/_features/ai/AiInstructionModal';
+import { ProjectNavigator } from '@/components/_features/navigator/ProjectNavigator';
+import { useProjectStore } from '@/stores/projectStore';
 import { LineaEvent } from '@/lib/types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -181,7 +183,22 @@ function ProofView() {
 
 // ===== メインページ =====
 export default function V2Page() {
-    const { workMode, setWorkMode, currentDocumentTitle, currentDocumentId } = useAppStore();
+    // ストア
+    const {
+        workMode,
+        setWorkMode,
+        isSidebarOpen,
+        activeSidebarView,
+        currentDocumentId,
+        currentDocumentTitle,
+        setActiveSidebarView,
+        setSidebarOpen
+    } = useAppStore();
+
+    // Project Store
+    const { activeProjectId, activeTeamId } = useProjectStore();
+
+    // Editor Store
     const { markdown, isDirty, markAsSaved, resetDocument, setMarkdown, savedMarkdown } = useEditorStore();
 
     // Linea (履歴管理) - ドキュメントIDを渡す
@@ -197,7 +214,6 @@ export default function V2Page() {
         updateEventContent,
     } = useLinea(currentDocumentId);
 
-    const [activeNav, setActiveNav] = useState<NavItem>('projects');
     const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
 
     // 履歴関連の状態
@@ -216,6 +232,7 @@ export default function V2Page() {
     const [editCommentEvent, setEditCommentEvent] = useState<LineaEvent | null>(null);
     const [showAiInstructionModal, setShowAiInstructionModal] = useState(false);
     const [showCreateDocumentModal, setShowCreateDocumentModal] = useState(false);
+    const [showCreateProjectModal, setShowCreateProjectModal] = useState(false); // TODO: Implement
 
     // Refs
     const branchCommentRef = useRef<string>('');
@@ -303,19 +320,6 @@ export default function V2Page() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [handleSave, setWorkMode]);
 
-    // ===== ナビゲーション =====
-    const handleNavClick = useCallback((item: NavItem) => {
-        if (item === 'settings') {
-            alert('設定は将来実装予定です');
-            return;
-        }
-        if (item === 'search') {
-            alert('横断検索は将来実装予定です');
-            return;
-        }
-        setActiveNav(item);
-    }, []);
-    // ===== 新規ドキュメント作成 =====
     // ===== 新規ドキュメント作成 =====
     const handleStartNew = useCallback(() => {
         setShowCreateDocumentModal(true);
@@ -327,10 +331,10 @@ export default function V2Page() {
         const newEvent = resetWithContent(initialContent, '新規ドキュメント作成');
         setSelectedEventId(newEvent.id);
         setHistoryViewContent(null);
-        setActiveNav('projects');
+        setActiveSidebarView('project_list');
         setWorkMode('write');
         setShowCreateDocumentModal(false);
-    }, [resetDocument, resetWithContent, setWorkMode]);
+    }, [resetDocument, resetWithContent, setWorkMode, setActiveSidebarView]);
 
 
 
@@ -475,21 +479,11 @@ export default function V2Page() {
 
     }, [selectedEventId, historyViewContent, markdown, addEvent, updateEventContent, getEventById]);
 
-    // ===== ホーム画面 =====
-    if (activeNav === 'home') {
-        return (
-            <div className="h-screen flex bg-slate-50">
-                <RailNav activeItem={activeNav} onItemClick={handleNavClick} />
-                <div className="flex-1 relative">
-                    <HomeView
-                        onOpenLegal={() => setIsLegalModalOpen(true)}
-                        onStartNew={handleStartNew}
-                    />
-                    <LegalModal isOpen={isLegalModalOpen} onClose={() => setIsLegalModalOpen(false)} />
-                </div>
-            </div>
-        );
-    }
+    // ===== ホーム画面 (Project List でドキュメント未選択ならホーム扱いとする？) =====
+    // 現在は常にV2Pageレイアウトを使うので、HomeViewをRailNav内に埋め込むか、
+    // activeSidebarView === 'project_list' かつ currentDocumentId === null の時に表示するか検討が必要。
+    // 一旦、RailNavクリックでサイドバーが開く仕様にしたため、全画面HomeViewは廃止し、
+    // ProjectNavigatorをデフォルトで開く形にする。
 
     // ===== 比較情報の算出 =====
     const compareInfo = useMemo(() => {
@@ -533,7 +527,7 @@ export default function V2Page() {
     // ===== ドキュメントビュー =====
     return (
         <div className="h-screen flex bg-slate-50">
-            <RailNav activeItem={activeNav} onItemClick={handleNavClick} />
+            <RailNav onHelpClick={() => setIsLegalModalOpen(true)} />
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* ヘッダー */}
@@ -595,70 +589,72 @@ export default function V2Page() {
                 {/* メインコンテンツ */}
                 <main className="flex-1 overflow-hidden relative">
                     {workMode === 'write' && (
-                        <PanelGroup orientation="horizontal" className="h-full w-full overflow-visible">
-                            {/* 左サイドバーパネル: モードによって切り替 */}
-                            <Panel
-                                id="sidebar-panel-main"
-                                defaultSize={260}
-                                minSize={150}
-                                collapsible
-                                className="bg-white flex flex-col"
-                            >
-                                <div className="h-full flex flex-col overflow-hidden">
-                                    {/* パネルヘッダー: ズームボタン */}
-                                    <div className="h-8 border-b border-slate-100 flex items-center justify-between px-2 bg-slate-50/50 shrink-0">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                            {(activeNav === 'projects' || activeNav === 'graph') ? 'Project' :
-                                                activeNav === 'history' ? 'History' :
-                                                    activeNav === 'metadata' ? 'Metadata' : 'Panel'}
-                                        </span>
-                                    </div>
-                                    <div className="flex-1 overflow-auto">
-                                        {(activeNav === 'projects' || activeNav === 'graph') && <DocumentNavigator />}
-                                        {activeNav === 'metadata' && <FrontmatterForm />}
-                                        {activeNav === 'history' && (
-                                            <LineaPanel
-                                                events={events}
-                                                selectedEventId={selectedEventId}
-                                                isBranching={isBranching}
-                                                onSelectEvent={handleSelectEvent}
-                                                onClearHistory={handleClearHistory}
-                                                onMakeLatest={handleMakeLatest}
-                                                onStartBranch={handleStartBranch}
-                                                onCancelBranch={handleCancelBranch}
-                                                onEditComment={handleEditComment}
+                        <PanelGroup orientation="horizontal">
+
+                            {/* サイドバー (Resizable) */}
+                            {isSidebarOpen && (
+                                <>
+                                    {/* Sidebar Panel Content */}
+                                    <Panel
+                                        id="sidebar-panel"
+                                        defaultSize="25"
+                                        minSize="20"
+                                        maxSize="45"
+                                        className="bg-slate-50 flex flex-col border-r border-slate-200"
+                                    >
+                                        {activeSidebarView === 'project_list' && (
+                                            <ProjectNavigator
+                                                onCreateProject={() => setShowCreateProjectModal(true)}
                                             />
                                         )}
-                                        {activeNav === 'search' && (
-                                            <div className="p-4 text-slate-500 text-sm italic">横断検索パネル（開発予定）</div>
+
+                                        {activeSidebarView === 'project_detail' && (
+                                            <DocumentNavigator />
                                         )}
-                                    </div>
-                                </div>
-                            </Panel>
 
-                            {/* リサイズハンドル */}
-                            <ResizeHandle id="sidebar-resize-handle" style={{ flex: '0 0 auto', width: '8px', position: 'relative', zIndex: 50 }} />
+                                        {activeSidebarView === 'history' && (
+                                            <div className="h-full flex flex-col">
+                                                <div className="p-4 border-b border-slate-200 bg-white flex items-center justify-between">
+                                                    <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                                                        <GitBranch className="w-5 h-5 text-cyan-600" />
+                                                        History (Linea)
+                                                    </h3>
+                                                </div>
+                                                <div className="flex-1 overflow-hidden">
+                                                    <LineaPanel
+                                                        events={events}
+                                                        selectedEventId={selectedEventId}
+                                                        isBranching={isBranching}
+                                                        onSelectEvent={handleSelectEvent}
+                                                        onStartBranch={handleStartBranch}
+                                                        onMakeLatest={handleMakeLatest}
+                                                        onCancelBranch={handleCancelBranch}
+                                                        onClearHistory={handleClearHistory}
+                                                        onEditComment={handleEditComment}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
 
-                            {/* 右: エディタ または グラフ */}
-                            <Panel id="editor-panel" className="overflow-hidden">
-                                {activeNav === 'graph' ? (
-                                    <div className="h-full w-full bg-slate-50">
-                                        <NetworkGraph />
-                                    </div>
-                                ) : (
-                                    <SplitEditorLayout
-                                        editorKey={editorKey}
-                                        overrideContent={historyViewContent || undefined}
-                                        savedMarkdown={historyViewContent
-                                            ? undefined
-                                            : savedMarkdown
-                                        }
-                                        compareWith={compareInfo.content}
-                                        compareLabel={compareInfo.label}
-                                        onSave={handleSave}
-                                        onAiMention={handleAiMention}
-                                    />
-                                )}
+                                        {activeSidebarView === 'attributes' && (
+                                            <FrontmatterForm />
+                                        )}
+                                    </Panel>
+                                    <ResizeHandle />
+                                </>
+                            )}
+
+                            {/* Editor Panel */}
+                            <Panel className="overflow-hidden">
+                                <SplitEditorLayout
+                                    editorKey={editorKey}
+                                    overrideContent={historyViewContent || undefined}
+                                    savedMarkdown={historyViewContent ? undefined : savedMarkdown}
+                                    compareWith={compareInfo.content}
+                                    compareLabel={compareInfo.label}
+                                    onSave={handleSave}
+                                    onAiMention={handleAiMention}
+                                />
                             </Panel>
                         </PanelGroup>
                     )}
@@ -672,7 +668,7 @@ export default function V2Page() {
                     <span>History: {events.length}</span>
                     <span className="hidden sm:inline">Ctrl+S: Save</span>
                 </footer>
-            </div>
+            </div >
 
             {/* モーダル群 */}
             <BranchCommentModal
@@ -710,6 +706,6 @@ export default function V2Page() {
                 onClose={() => setShowCreateDocumentModal(false)}
                 onConfirm={handleConfirmStartNew}
             />
-        </div >
+        </div>
     );
 }

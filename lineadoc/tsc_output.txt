@@ -1,0 +1,32 @@
+src/app/debug-replica/page.tsx(20,19): error TS2305: Module '"@/components/_shared/RailNav"' has no exported member 'NavItem'.
+src/app/debug-replica/page.tsx(419,26): error TS2322: Type '{ activeItem: NavItem; onItemClick: (item: NavItem) => void; }' is not assignable to type 'IntrinsicAttributes & RailNavProps'.
+  Property 'activeItem' does not exist on type 'IntrinsicAttributes & RailNavProps'.
+src/app/debug-replica/page.tsx(434,22): error TS2322: Type '{ activeItem: NavItem; onItemClick: (item: NavItem) => void; }' is not assignable to type 'IntrinsicAttributes & RailNavProps'.
+  Property 'activeItem' does not exist on type 'IntrinsicAttributes & RailNavProps'.
+src/app/v2/page.tsx(20,19): error TS2305: Module '"@/components/_shared/RailNav"' has no exported member 'NavItem'.
+src/app/v2/page.tsx(417,26): error TS2322: Type '{ activeItem: NavItem; onItemClick: (item: NavItem) => void; }' is not assignable to type 'IntrinsicAttributes & RailNavProps'.
+  Property 'activeItem' does not exist on type 'IntrinsicAttributes & RailNavProps'.
+src/app/v2/page.tsx(432,22): error TS2322: Type '{ activeItem: NavItem; onItemClick: (item: NavItem) => void; }' is not assignable to type 'IntrinsicAttributes & RailNavProps'.
+  Property 'activeItem' does not exist on type 'IntrinsicAttributes & RailNavProps'.
+src/components/_features/graph/NetworkGraph.tsx(30,13): error TS2339: Property 'setFilterProject' does not exist on type 'DocumentState'.
+src/components/_features/graph/NetworkGraph.tsx(67,34): error TS2339: Property 'content' does not exist on type 'Document'.
+src/components/_features/graph/NetworkGraph.tsx(191,25): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ForceGraphProps<{ [others: string]: any; id?: string | number | undefined; x?: number | undefined; y?: number | undefined; vx?: number | undefined; vy?: number | undefined; fx?: number | undefined; fy?: number | undefined; }, { ...; }> & { ...; }, context?: any): string | ... 8 more ... | undefined', gave the following error.
+    Type '(node: GraphNode) => void' is not assignable to type '(node: { [others: string]: any; id?: string | number | undefined; x?: number | undefined; y?: number | undefined; vx?: number | undefined; vy?: number | undefined; fx?: number | undefined; fy?: number | undefined; }, event: MouseEvent) => void'.
+      Types of parameters 'node' and 'node' are incompatible.
+        Type '{ [others: string]: any; id?: string | number | undefined; x?: number | undefined; y?: number | undefined; vx?: number | undefined; vy?: number | undefined; fx?: number | undefined; fy?: number | undefined; }' is missing the following properties from type 'GraphNode': label, type
+  Overload 2 of 2, '(props: ForceGraphProps<{ [others: string]: any; id?: string | number | undefined; x?: number | undefined; y?: number | undefined; vx?: number | undefined; vy?: number | undefined; fx?: number | undefined; fy?: number | undefined; }, { ...; }> & { ...; }): string | ... 8 more ... | undefined', gave the following error.
+    Type '(node: GraphNode) => void' is not assignable to type '(node: { [others: string]: any; id?: string | number | undefined; x?: number | undefined; y?: number | undefined; vx?: number | undefined; vy?: number | undefined; fx?: number | undefined; fy?: number | undefined; }, event: MouseEvent) => void'.
+      Types of parameters 'node' and 'node' are incompatible.
+        Type '{ [others: string]: any; id?: string | number | undefined; x?: number | undefined; y?: number | undefined; vx?: number | undefined; vy?: number | undefined; fx?: number | undefined; fy?: number | undefined; }' is missing the following properties from type 'GraphNode': label, type
+src/components/_features/navigator/DocumentNavigator.tsx(33,30): error TS2339: Property 'getProject' does not exist on type 'ProjectState'.
+src/components/_features/navigator/DocumentNavigator.tsx(67,66): error TS2339: Property 'content' does not exist on type 'Document'.
+src/components/_features/navigator/DocumentNavigator.tsx(212,96): error TS2339: Property 'content' does not exist on type 'Document'.
+src/components/_features/navigator/DocumentNavigator.tsx(239,50): error TS2339: Property 'frontmatter' does not exist on type 'Document'.
+src/components/_features/navigator/DocumentNavigator.tsx(241,54): error TS2339: Property 'frontmatter' does not exist on type 'Document'.
+src/components/_features/navigator/DocumentNavigator.tsx(245,60): error TS2339: Property 'frontmatter' does not exist on type 'Document'.
+src/components/_features/navigator/DocumentNavigator.tsx(245,85): error TS2339: Property 'frontmatter' does not exist on type 'Document'.
+src/components/_features/navigator/DocumentNavigator.tsx(245,118): error TS7006: Parameter 'tag' implicitly has an 'any' type.
+src/lib/graph-utils.ts(7,10): error TS2459: Module '"@/stores/documentStore"' declares 'Document' locally, but it is not exported.
+src/lib/graph-utils.ts(54,42): error TS7006: Parameter 'tag' implicitly has an 'any' type.
+src/lib/graph-utils.ts(95,42): error TS7006: Parameter 'tag' implicitly has an 'any' type.
