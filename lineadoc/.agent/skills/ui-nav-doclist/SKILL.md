@@ -1,6 +1,6 @@
 ---
 name: ui-nav-doclist
-description: Supabase上の文書一覧を表示し、選択・削除できるサイドバーコンポーネントを作成する。
+description: 階層化されたサイドバーナビゲーション（プロジェクト一覧・ドキュメント一覧）の実装スキル。
 allowed-tools: [file_edit]
 meta:
   domain: frontend
@@ -10,6 +10,31 @@ meta:
   estimated_time: 50min
   dependencies: [data-api-fetch, ui-layout-app]
 ---
+
+# Skill: ui-nav-doclist
+
+## 概要
+階層化されたサイドバーナビゲーション（プロジェクト一覧・ドキュメント一覧）の実装スキル。
+
+## 役割
+1.  **Project List View**:
+    - チームごとのプロジェクト表示。
+    - 検索・フィルタリング。
+    - 新規プロジェクト作成への導線。
+2.  **Project Detail View (Document List)**:
+    - プロジェクト内のドキュメント一覧表示。
+    - ドキュメントの選択、追加、削除。
+    - プロジェクト設定へのアクセス。
+
+## 実装詳細
+- **コンポーネント**: `SidebarContainer` 内で `ProjectNavigator` と `DocumentNavigator` を条件付きレンダリングする。
+- **データソース**: `useProjectStore` (プロジェクト/チーム) と `useDocumentStore` (ドキュメント) を組み合わせる。
+- **フィルタリング**:
+    - チームによるフィルタ。
+    - プロジェクト内のドキュメント検索。
+- **UX**:
+    - プロジェクト選択時は、ドキュメントリストへ遷移するアニメーション等が望ましい。
+    - 各アイテムはクリックしやすく、アクティブ状態が明確であること。
 
 # このスキルでやること
 

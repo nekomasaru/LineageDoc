@@ -27,10 +27,28 @@ export interface LayoutLink {
     targetY: number;
 }
 
+export interface Team {
+    id: string;
+    name: string;
+    members: string[]; // User IDs or names for now
+}
+
+export interface Project {
+    id: string;
+    name: string;
+    description?: string;
+    teamId: string;
+    tags: string[];
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface Document {
     id: string;
+    projectId: string; // Required link to Project
     title: string;
     rawContent: string;
+    attributes?: Record<string, any>; // Flexible metadata
     createdAt: string;
     updatedAt: string;
 }

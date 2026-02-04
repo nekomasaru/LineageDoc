@@ -1,13 +1,34 @@
 ---
-name: ui-layout-app
-description: サイドバーとメインエリアを持つアプリケーションシェルを構築する。
-allowed-tools: [file_edit]
-meta:
-  domain: frontend
-  role: layout-component
-  tech_stack: react, tailwind-css
-  phase: 2
-  estimated_time: 45min
+name# Skill: ui-layout-app
+## 概要
+LineaDocのアプリケーションレイアウト（AppShell）を構築・管理するスキル。
+左端のRailNav、可変幅のSidebar、メインコンテンツエリアの3カラム構成を基本とする。
+
+## 構成要素
+
+### 1. RailNav (Global Navigation)
+- **役割**: コンテキストの切り替えとグローバルアクション。
+- **主要アイテム**:
+    - `Logo`: プロジェクト一覧（ホーム）に戻る。
+    - `History`: 選択中ドキュメントの履歴パネルを表示（ドキュメント選択時のみ）。
+    - `Attributes`: 選択中ドキュメント・プロジェクトの属性パネルを表示。
+    - `Settings`: チーム・アプリ設定。
+
+### 2. Sidebar (Resizable Panel)
+- **役割**: 階層ナビゲーション。
+- **表示モード**:
+    - `ProjectList`: チームごとのプロジェクト一覧表示。
+    - `ProjectDetail`: 特定プロジェクト内のドキュメント一覧表示。
+    - `Metadata/History`: 属性や履歴の詳細パネル（オーバーレイまたは置換）。
+
+### 3. Main Content
+- **役割**: ドキュメント編集、または初期状態のダッシュボード。
+- **ヘッダー**: パンくずリスト、タイトル、ステータス、モード切替。
+
+## 実装ルール
+- `react-resizable-panels` を使用してリサイズ可能にする。
+- ナビゲーションの状態（現在のビューモード、選択中ID）は `useAppStore` または `useProjectStore` で管理する。
+- 画面遷移はスムーズに行い、ユーザーが現在地（チーム/プロジェクト階層）を見失わないようにする。
   dependencies: [editor-ui-switcher]
 ---
 
