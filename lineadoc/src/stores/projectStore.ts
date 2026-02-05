@@ -14,10 +14,12 @@ interface ProjectState {
     addTeam: (name: string) => Team;
     updateTeam: (id: string, updates: Partial<Team>) => void;
     setActiveTeam: (id: string | null) => void;
+    updateTeamGovernance: (id: string, governance: Partial<Team['governance']>) => void;
 
     setProjects: (projects: Project[]) => void;
     addProject: (teamId: string, name: string, description?: string, tags?: string[]) => Project;
     updateProject: (id: string, updates: Partial<Project>) => void;
+    updateProjectGovernance: (id: string, governance: Partial<Project['governance']>) => void;
     deleteProject: (id: string) => void;
     setActiveProject: (id: string | null) => void;
 
@@ -54,6 +56,10 @@ export const useProjectStore = create<ProjectState>()(
 
             setActiveTeam: (id) => set({ activeTeamId: id }),
 
+            updateTeamGovernance: (id, governance) => set((state) => ({
+                teams: state.teams.map((t) => (t.id === id ? { ...t, governance: { ...t.governance, ...governance } } : t)),
+            })),
+
             setProjects: (projects) => set({ projects }),
 
             addProject: (teamId, name, description = '', tags = []) => {
@@ -76,6 +82,12 @@ export const useProjectStore = create<ProjectState>()(
             updateProject: (id, updates) => set((state) => ({
                 projects: state.projects.map((p) =>
                     p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p
+                ),
+            })),
+
+            updateProjectGovernance: (id, governance) => set((state) => ({
+                projects: state.projects.map((p) =>
+                    p.id === id ? { ...p, governance: { ...p.governance, ...governance }, updatedAt: new Date().toISOString() } : p
                 ),
             })),
 

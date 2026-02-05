@@ -27,10 +27,17 @@ export interface LayoutLink {
     targetY: number;
 }
 
+export interface GovernanceSettings {
+    mdSchema?: string;
+    textlintConfig?: Record<string, boolean>;
+    customDictionary?: { pattern: string; expected: string; enabled: boolean }[];
+}
+
 export interface Team {
     id: string;
     name: string;
     members: string[]; // User IDs or names for now
+    governance?: GovernanceSettings;
 }
 
 export interface Project {
@@ -39,6 +46,7 @@ export interface Project {
     description?: string;
     teamId: string;
     tags: string[];
+    governance?: GovernanceSettings;
     createdAt: string;
     updatedAt: string;
 }
@@ -49,6 +57,7 @@ export interface Document {
     title: string;
     rawContent: string;
     mdSchema?: string; // MDSchema definition (YAML/DSL)
+    textlintConfig?: Record<string, boolean>; // Textlint rule enable/disable state
     attributes?: Record<string, any>; // Flexible metadata
     createdAt: string;
     updatedAt: string;

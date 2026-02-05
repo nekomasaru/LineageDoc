@@ -26,6 +26,8 @@ import yaml from 'js-yaml';
 import { useDebounce } from 'use-debounce';
 import { useAppStore } from '@/stores/appStore';
 import { useDocumentStore } from '@/stores/documentStore';
+import { useProjectStore } from '@/stores/projectStore';
+import { Project, Team } from '@/lib/types';
 
 interface SplitEditorLayoutProps {
     className?: string;
@@ -164,18 +166,37 @@ export function SplitEditorLayout({
     const { documents } = useDocumentStore();
     const currentDoc = useMemo(() => documents.find(d => d.id === currentDocumentId), [documents, currentDocumentId]);
 
+    const { teams, projects } = useProjectStore();
+
     useEffect(() => {
-        if (!isReadOnly) {
-            const mdSchema = currentDoc?.mdSchema;
+        if (!isReadOnly && currentDoc) {
+            // Get Hierarchical Governance Settings
+            const project = projects.find((p: Project) => p.id === currentDoc.projectId);
+            const team = project ? teams.find((t: Team) => t.id === project.teamId) : null;
+
+            // Merge Logic: Team < Project < Document
+            const mdSchema = currentDoc.mdSchema || project?.governance?.mdSchema || team?.governance?.mdSchema;
+
+            const textlintConfig = {
+                ...team?.governance?.textlintConfig,
+                ...project?.governance?.textlintConfig,
+                ...currentDoc.textlintConfig
+            };
+
+            const customDictionary = [
+                ...(team?.governance?.customDictionary || []),
+                ...(project?.governance?.customDictionary || []),
+                ...(currentDoc.attributes?.customDictionary || []) // Backwards compatibility or doc-specific
+            ];
+
             try {
                 const { data } = matter(debouncedMarkdown);
-                runValidation(debouncedMarkdown, data, mdSchema);
+                runValidation(debouncedMarkdown, data, mdSchema, textlintConfig, customDictionary);
             } catch (e) {
-                // Frontmatterが壊れている場合も、本文のみでチェック
-                runValidation(debouncedMarkdown, {}, mdSchema);
+                runValidation(debouncedMarkdown, {}, mdSchema, textlintConfig, customDictionary);
             }
         }
-    }, [debouncedMarkdown, isReadOnly, runValidation, currentDoc?.mdSchema]);
+    }, [debouncedMarkdown, isReadOnly, runValidation, currentDoc, teams, projects]);
 
     // ナビゲーション処理（QualityPanelからのジャンプ）
     useEffect(() => {

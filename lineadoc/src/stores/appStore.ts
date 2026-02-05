@@ -15,7 +15,7 @@ import { devtools } from 'zustand/middleware';
  * - 'hub': ダッシュボード（プロジェクト一覧・チーム管理）
  * - 'spoke': エディタ（ドキュメント編集・プレビュー）
  */
-export type ViewMode = 'hub' | 'spoke';
+export type ViewMode = 'hub' | 'spoke' | 'governance';
 
 /**
  * ワークモード (Spoke内)

@@ -11,7 +11,7 @@
 
 import {
     Search, Plus, Home, Settings, Users, ChevronLeft,
-    ChevronRight, FileText, Hash
+    ChevronRight, FileText, Hash, ShieldCheck
 } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -66,6 +66,13 @@ export function LeftSidebar({ className = '' }: LeftSidebarProps) {
                 >
                     <Settings className="w-4 h-4" />
                     <span>設定</span>
+                </button>
+                <button
+                    onClick={() => setViewMode('governance')}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-200 rounded-md transition-colors text-left"
+                >
+                    <ShieldCheck className="w-4 h-4 text-cyan-600" />
+                    <span>ガバナンス設定</span>
                 </button>
             </div>
 

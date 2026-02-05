@@ -29,7 +29,7 @@ interface QualityState {
     setHighlightedIssue: (issue: QualityIssue | null) => void;
 
     // チェック実行（簡易バリデーター）
-    runValidation: (content: string, frontmatter: any, mdSchema?: string) => Promise<void>;
+    runValidation: (content: string, frontmatter: any, mdSchema?: string, textlintConfig?: Record<string, boolean>, customDictionary?: { pattern: string; expected: string; enabled: boolean }[]) => Promise<void>;
 }
 
 export const useQualityStore = create<QualityState>((set) => ({
@@ -42,7 +42,7 @@ export const useQualityStore = create<QualityState>((set) => ({
     setChecking: (isChecking) => set({ isChecking }),
     setHighlightedIssue: (issue) => set({ highlightedIssue: issue }),
 
-    runValidation: async (content, frontmatter, mdSchema) => {
+    runValidation: async (content, frontmatter, mdSchema, textlintConfig, customDictionary) => {
         set({ isChecking: true });
 
         try {
@@ -69,7 +69,7 @@ export const useQualityStore = create<QualityState>((set) => ({
                 const response = await fetch('/api/lint', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content }),
+                    body: JSON.stringify({ content, textlintConfig, customDictionary }),
                 });
 
                 if (response.ok) {

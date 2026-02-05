@@ -22,6 +22,8 @@ interface DocumentState {
     // アクション
     addDocument: (projectId: string, title: string, initialContent?: string, mdSchema?: string) => Document;
     updateDocument: (id: string, content: string) => void;
+    updateMdSchema: (id: string, mdSchema: string) => void;
+    updateTextlintConfig: (id: string, config: Record<string, boolean>) => void;
     deleteDocument: (id: string) => void;
 
     setFilterProjectId: (projectId: string | null) => void;
@@ -89,6 +91,24 @@ export const useDocumentStore = create<DocumentState>()(
                         ),
                     }));
                 }
+            },
+
+            updateMdSchema: (id, mdSchema) => {
+                const now = new Date().toISOString();
+                set((state) => ({
+                    documents: state.documents.map((doc) =>
+                        doc.id === id ? { ...doc, mdSchema, updatedAt: now } : doc
+                    ),
+                }));
+            },
+
+            updateTextlintConfig: (id, textlintConfig) => {
+                const now = new Date().toISOString();
+                set((state) => ({
+                    documents: state.documents.map((doc) =>
+                        doc.id === id ? { ...doc, textlintConfig, updatedAt: now } : doc
+                    ),
+                }));
             },
 
             deleteDocument: (id) => {

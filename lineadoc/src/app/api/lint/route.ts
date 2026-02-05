@@ -23,7 +23,7 @@ interface LintResponse {
 
 export async function POST(request: NextRequest): Promise<NextResponse<LintResponse>> {
     try {
-        const { content } = await request.json();
+        const { content, textlintConfig, customDictionary } = await request.json();
 
         if (!content || typeof content !== 'string') {
             return NextResponse.json({
@@ -33,13 +33,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<LintRespo
             }, { status: 400 });
         }
 
-        // --- Textlint API Call ONLY ---
+        // --- Textlint API Call ---
         let textlintIssues: LintIssue[] = [];
         try {
             const textlintRes = await fetch('http://localhost:8080/api/lint', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: content }),
+                body: JSON.stringify({ text: content, rulesConfig: textlintConfig, customDictionary }),
                 signal: AbortSignal.timeout(5000)
             });
 

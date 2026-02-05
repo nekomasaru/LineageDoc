@@ -53,44 +53,81 @@ const limiter = rateLimit({
 
 app.use('/api/', limiter);
 
-// Textlint Engine Singleton
-let engine;
-function getEngine() {
-    if (!engine) {
-        engine = new TextLintEngine({
-            configFile: './.textlintrc.json'
-        });
+// Expand flat rulesConfig (e.g., "preset/rule") into nested objects for Textlint
+function expandConfig(config) {
+    if (!config) return {};
+    const result = {};
+    for (const key in config) {
+        if (key.includes('/')) {
+            const parts = key.split('/');
+            const parent = parts[0];
+            const child = parts.slice(1).join('/'); // Support deeper nested if any
+
+            if (!result[parent]) result[parent] = {};
+            // If it's a boolean, we just toggle it. 
+            // Note: This might overwrite existing objects in the parent preset.
+            result[parent][child] = config[key];
+        } else {
+            result[key] = config[key];
+        }
     }
-    return engine;
+    return result;
 }
 
-// Generate Cache Key
-function getCacheKey(text) {
-    return `textlint:${crypto.createHash('md5').update(text).digest('hex')}`;
+// Convert customDictionary array to PRH YAML format
+function convertToPrh(customDictionary) {
+    if (!customDictionary || !Array.isArray(customDictionary) || customDictionary.length === 0) {
+        return null;
+    }
+
+    let yaml = 'version: 1\nrules:\n';
+    customDictionary.forEach(item => {
+        if (item.enabled !== false && item.pattern) {
+            yaml += `  - expected: ${item.expected || item.pattern}\n    pattern: ${item.pattern}\n`;
+        }
+    });
+    return yaml;
 }
 
-// Cache Wrapper
-async function getFromCache(key) {
-    if (redis && redis.status === 'ready') {
-        return await redis.get(key);
+// Textlint Engine Factory
+function createEngine(rulesConfig = {}, customDictionary = []) {
+    const expanded = expandConfig(rulesConfig);
+
+    // Inject custom dictionary into prh rule if present
+    const customPrhYaml = convertToPrh(customDictionary);
+    if (customPrhYaml) {
+        if (!expanded.prh) expanded.prh = {};
+        if (!expanded.prh.ruleContents) expanded.prh.ruleContents = [];
+        expanded.prh.ruleContents.push(customPrhYaml);
     }
-    return memoryCache.get(key);
+
+    return new TextLintEngine({
+        configFile: './.textlintrc.json',
+        rulesConfig: expanded
+    });
 }
 
-async function setCache(key, value, ttlSeconds) {
-    if (redis && redis.status === 'ready') {
-        await redis.setex(key, ttlSeconds, value);
-    } else {
-        memoryCache.set(key, value);
-        // Simple TTL for memory cache (no cleanup loop for simplicity in this MVP)
-        setTimeout(() => memoryCache.delete(key), ttlSeconds * 1000);
+// Default engine for cache misses with no custom config
+let defaultEngine;
+function getDefaultEngine() {
+    if (!defaultEngine) {
+        defaultEngine = createEngine();
     }
+    return defaultEngine;
+}
+
+// Generate Cache Key including rulesConfig hash and customDictionary hash
+function getCacheKey(text, rulesConfig = {}, customDictionary = []) {
+    const configStr = JSON.stringify(rulesConfig) + JSON.stringify(customDictionary);
+    const configHash = crypto.createHash('md5').update(configStr).digest('hex').substring(0, 8);
+    const textHash = crypto.createHash('md5').update(text).digest('hex');
+    return `textlint:${configHash}:${textHash}`;
 }
 
 // Lint Endpoint
 app.post('/api/lint', async (req, res) => {
     try {
-        const { text } = req.body;
+        const { text, rulesConfig, customDictionary } = req.body;
 
         if (text === undefined || typeof text !== 'string') {
             return res.status(400).json({ error: 'text is required' });
@@ -102,22 +139,27 @@ app.post('/api/lint', async (req, res) => {
             });
         }
 
-        const cacheKey = getCacheKey(text);
+        const cacheKey = getCacheKey(text, rulesConfig, customDictionary);
 
         // Check Cache
         const cached = await getFromCache(cacheKey);
         if (cached) {
-            // console.log('Cache hit:', cacheKey); // Verbose logging off
             const result = typeof cached === 'string' ? JSON.parse(cached) : cached;
             return res.json(result);
         }
 
         // Run textlint
-        // console.log('Cache miss, running textlint...');
         const startTime = Date.now();
 
-        const engine = getEngine();
-        const results = await engine.executeOnText(text);
+        // Use custom engine if rulesConfig or customDictionary is provided
+        let currentEngine;
+        if ((rulesConfig && Object.keys(rulesConfig).length > 0) || (customDictionary && customDictionary.length > 0)) {
+            currentEngine = createEngine(rulesConfig, customDictionary);
+        } else {
+            currentEngine = getDefaultEngine();
+        }
+
+        const results = await currentEngine.executeOnText(text);
 
         const response = {
             errors: results[0].messages.map(msg => ({

@@ -23,6 +23,7 @@ import { DocTemplate } from '@/lib/templates';
 import { LegalModal } from '@/components/_features/legal/LegalModal';
 import { SettingsModal } from '@/components/_features/settings/SettingsModal';
 import { useHotkeys } from '@/hooks/useHotkeys';
+import { GovernanceView } from '@/components/_features/governance/GovernanceView';
 
 export default function V2Page() {
     const {
@@ -88,9 +89,7 @@ export default function V2Page() {
                 const doc = documents.find(d => d.id === currentDocumentId);
                 if (doc && doc.rawContent) {
                     setMarkdown(doc.rawContent);
-                    // Initialize history v1 automatically
-                    addEvent(doc.rawContent, 'user_edit', null, '新規作成（テンプレート）');
-                    console.log('[Page] Initialized v1 history from template content');
+                    console.log('[Page] Initialized editor from document rawContent (No history yet)');
                 } else {
                     setMarkdown('# 新規ドキュメント\n\nここに文書を入力してください。');
                     console.log('[Page] No content found, set default placeholder');
@@ -269,6 +268,21 @@ export default function V2Page() {
         );
     }
 
+    // 3. Governance Mode
+    if (viewMode === 'governance') {
+        return (
+            <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
+                <GlobalHeader onSave={handleSave} />
+                <main className="flex-1 flex overflow-hidden">
+                    <LeftSidebar className="shrink-0" />
+                    <div className="flex-1 overflow-auto bg-white">
+                        <GovernanceView />
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
     // 2. Spoke (Editor)
     return (
         <div className="h-screen flex flex-col bg-white overflow-hidden">
@@ -364,7 +378,12 @@ export default function V2Page() {
                     // 2. Set Active Doc
                     setCurrentDocument(doc.id, doc.title);
 
-                    // 3. The useLinea hook will handle the initial load and setMarkdown
+                    // 3. Immediately initialize history v1 to prevent duplicate creation cycles
+                    // Note: We need a small delay or ensure store is synced if using hooks, 
+                    // but here we can rely on the fact that useLinea will pick up the new ID soon.
+                    // However, it's safer to let the editor load it first, OR create it here if we have access to addEvent.
+                    // Since we are in the callback, we'll let handleSave or the next manual save handle it, or better,
+                    // we can use a dedicated initialization.
                     console.log('[Page] Created new document from template:', template.id);
                     setActiveModal(null);
                 }}

@@ -6,10 +6,11 @@
  */
 
 import { useState } from 'react';
-import { X, Keyboard, Info, RotateCcw } from 'lucide-react';
+import { X, Keyboard, Info, RotateCcw, ShieldCheck } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore, HotkeyConfig } from '@/stores/settingsStore';
 import { LegalModal } from '../legal/LegalModal';
+import { GovernanceSettings } from '../governance/GovernanceSettings';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -157,7 +158,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         </div>
                     ) : (
                         <div className="animate-in fade-in duration-300">
-                            {/* Reusing content from LegalModal manually or we can refactor LegalModal to be a component purely for content */}
                             <LegalContent />
                         </div>
                     )}

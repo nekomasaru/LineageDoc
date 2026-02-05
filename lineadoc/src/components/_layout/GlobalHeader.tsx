@@ -103,7 +103,7 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
                 const projectId = activeProjectId || 'default-project';
                 const newDoc = addDocument(projectId, title, content);
                 setCurrentDocument(newDoc.id, newDoc.title);
-                console.log('Imported document:', newDoc);
+                console.log('Imported document and set active:', newDoc.id);
             }
         } catch (error) {
             console.error('Import failed:', error);
@@ -122,9 +122,9 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
                     onClick={handleHomeClick}
                     className="flex items-center gap-2 hover:bg-slate-100 p-1.5 rounded-lg transition-colors group"
                 >
-                    <Logo size={24} className="text-cyan-600" />
+                    <Logo size={42} className="text-cyan-600 drop-shadow-sm" />
                     {viewMode === 'hub' && (
-                        <span className="font-bold text-slate-700 tracking-tight hidden sm:inline">LineaDoc</span>
+                        <span className="font-extrabold text-2xl text-slate-800 tracking-tight hidden sm:inline">LineaDoc</span>
                     )}
                 </button>
 

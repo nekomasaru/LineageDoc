@@ -13,14 +13,14 @@ export interface LintResult {
 }
 
 /**
- * サーバーサイドでValeを実行し、結果を取得する
+ * サーバーサイドでTextlintを実行し、結果を取得する
  */
-export async function lintMarkdown(content: string): Promise<LintResult> {
+export async function lintMarkdown(content: string, textlintConfig?: Record<string, boolean>): Promise<LintResult> {
     try {
         const response = await fetch('/api/lint', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content }),
+            body: JSON.stringify({ content, textlintConfig }),
         });
 
         if (!response.ok) {
