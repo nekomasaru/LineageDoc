@@ -14,28 +14,32 @@ interface SchemaRow {
     text: string;
 }
 
-export const MDSchemaFormEditor: React.FC = () => {
-    const { currentDocumentId } = useAppStore();
-    const { documents, updateMdSchema } = useDocumentStore();
-    const { projects, teams, updateProjectGovernance, updateTeamGovernance } = useProjectStore();
+interface MDSchemaFormEditorProps {
+    overrideTarget?: { type: 'team' | 'project' | 'template'; id: string };
+}
 
-    const [scope, setScope] = useState<GovernanceScope>('document');
+export const MDSchemaFormEditor: React.FC<MDSchemaFormEditorProps> = ({ overrideTarget }) => {
+    const { currentDocumentId } = useAppStore();
+    const { documents } = useDocumentStore();
+    const { projects, teams, updateProjectGovernance, updateTeamGovernance, updateTemplateGovernance } = useProjectStore();
+
     const [rows, setRows] = useState<SchemaRow[]>([]);
     const [isSaved, setIsSaved] = useState(false);
 
-    const doc = documents.find((d: Document) => d.id === currentDocumentId);
-    const project = doc ? projects.find((p: Project) => p.id === doc.projectId) : null;
-    const team = project ? teams.find((t: Team) => t.id === project.teamId) : null;
-
-    // Initial load: parse YAML to rows based on scope
+    // Initial load: parse YAML to rows based on overrideTarget
     useEffect(() => {
+        if (!overrideTarget) return;
+
         let schemaToParse: string | undefined;
 
-        if (scope === 'document') {
-            schemaToParse = doc?.mdSchema;
-        } else if (scope === 'project') {
+        if (overrideTarget.type === 'template') {
+            const team = teams[0];
+            schemaToParse = team?.templateGovernance?.[overrideTarget.id]?.mdSchema;
+        } else if (overrideTarget.type === 'project') {
+            const project = projects.find(p => p.id === overrideTarget.id);
             schemaToParse = project?.governance?.mdSchema;
-        } else if (scope === 'team') {
+        } else if (overrideTarget.type === 'team') {
+            const team = teams.find(t => t.id === overrideTarget.id);
             schemaToParse = team?.governance?.mdSchema;
         }
 
@@ -45,7 +49,6 @@ export const MDSchemaFormEditor: React.FC = () => {
         }
 
         try {
-            // Simple subset YAML parser for our MDSchema
             const parsedRows: SchemaRow[] = [];
             const lines = schemaToParse.split('\n');
             let currentLevel: number | null = null;
@@ -57,7 +60,7 @@ export const MDSchemaFormEditor: React.FC = () => {
                 if (levelMatch) currentLevel = parseInt(levelMatch[1]);
                 if (textMatch && currentLevel !== null) {
                     parsedRows.push({
-                        id: `row-${index}`,
+                        id: `row-${index}-${Date.now()}`,
                         level: currentLevel,
                         text: textMatch[1]
                     });
@@ -74,7 +77,7 @@ export const MDSchemaFormEditor: React.FC = () => {
             console.error('Failed to parse mdSchema YAML:', e);
             setRows([{ id: '1', level: 1, text: '' }]);
         }
-    }, [scope, doc?.id, project?.id, team?.id]);
+    }, [overrideTarget, documents, projects, teams]);
 
     const addRow = () => {
         const lastRow = rows[rows.length - 1];
@@ -95,23 +98,31 @@ export const MDSchemaFormEditor: React.FC = () => {
     };
 
     const handleSave = () => {
-        // Convert rows back to YAML DSL
+        if (!overrideTarget) return;
+
         const yaml = "structure:\n" + rows
             .filter(r => r.text.trim() !== '')
             .map(r => `  - level: ${r.level}\n    text: "${r.text.replace(/"/g, '\\"')}"`)
             .join('\n');
 
-        if (scope === 'document' && currentDocumentId) {
-            updateMdSchema(currentDocumentId, yaml);
-        } else if (scope === 'project' && project) {
-            updateProjectGovernance(project.id, { mdSchema: yaml });
-        } else if (scope === 'team' && team) {
-            updateTeamGovernance(team.id, { mdSchema: yaml });
+        if (overrideTarget.type === 'template') {
+            const teamId = teams[0]?.id;
+            if (teamId) {
+                updateTemplateGovernance(teamId, overrideTarget.id, { mdSchema: yaml });
+            }
+        } else if (overrideTarget.type === 'project') {
+            updateProjectGovernance(overrideTarget.id, { mdSchema: yaml });
+        } else if (overrideTarget.type === 'team') {
+            updateTeamGovernance(overrideTarget.id, { mdSchema: yaml });
         }
 
         setIsSaved(true);
         setTimeout(() => setIsSaved(false), 2000);
     };
+
+    const targetLabel = overrideTarget?.type === 'team' ? '組織・チーム'
+        : overrideTarget?.type === 'project' ? 'プロジェクト'
+            : 'テンプレート';
 
     return (
         <div className="space-y-6">
@@ -121,10 +132,10 @@ export const MDSchemaFormEditor: React.FC = () => {
                         <List className="text-cyan-600" size={24} />
                         文書構造の定義
                     </h2>
-                    <p className="text-sm text-slate-500 mt-1">ドキュメントに含めるべき見出しの順序と階層を設定します。</p>
+                    <p className="text-sm text-slate-500 mt-1">
+                        選択中の {targetLabel} に適用する、見出しの順序と階層を設定します。
+                    </p>
                 </div>
-
-                <GovernanceScopeSelector scope={scope} onScopeChange={setScope} />
             </div>
 
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
@@ -132,13 +143,13 @@ export const MDSchemaFormEditor: React.FC = () => {
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">構成要素の一覧</span>
                     <button
                         onClick={handleSave}
-                        className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold transition-all ${isSaved
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-cyan-600 text-white hover:bg-cyan-700 shadow-md hover:shadow-cyan-100'
+                        className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95 ${isSaved
+                            ? 'bg-green-600 text-white'
+                            : 'bg-slate-800 text-white hover:bg-slate-900'
                             }`}
                     >
                         {isSaved ? <CheckCircle2 size={16} /> : <Save size={16} />}
-                        {isSaved ? '保存済み' : `${scope === 'document' ? 'この文書' : scope === 'project' ? 'プロジェクト' : 'チーム'}に適用`}
+                        {isSaved ? '保存済み' : `${targetLabel}の設定として保存`}
                     </button>
                 </div>
 

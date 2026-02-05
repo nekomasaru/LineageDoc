@@ -166,10 +166,15 @@ Bi-directional scroll synchronization ensures the editor and preview pane stay a
 
 ### 6. Future AI & Governance Integration (Phase 4-5)
 
-#### Quality & Governance (Currently Implementing)
-- **MDSCHEMA**: 公文書固有の構造チェック（章立て、メタデータ必須項目）。
-- **Textlint/Vale**: 用語統一、不適切な表現の自動検出。
-- **AIGovernance**: 指示内容がガイドラインに沿っているかの事前検証。
+#### Quality & Governance (Hierarchical Management)
+- **Administrative Selection**: Unified sidebar for selecting **Team (Organization-wide)**, **Project-specific**, or **Document Template (e.g., Minutes, Knowledge)** as governance targets.
+- **Hierarchy Priority**: Rules are inherited and overridden in the following order: `Team Standard` < `Project Custom` < `Template Standard` < `Document Override`.
+- **MDSCHEMA**: Structural validation (headings, required metadata) specific to the document purpose.
+- **Textlint/Vale**: Prose quality checks with toggleable rules per target.
+- **Custom Dictionary**:
+  - **Correction**: Normalizing terms (e.g., "AIv" -> "AI").
+  - **Exclusion**: Permitting specific variants (e.g., allow specific Kanji variants like "﨑" or "髙").
+- **Template-level Rules**: Pre-defined governance for standard business documents (Minutes, Reports, etc.) managed at the Team level.
 
 #### AI Architecture
 - **Knowledge Base**: Supabase Vector + Vertex AI Search による関連文書の検索。

@@ -191,18 +191,14 @@ supabase gen types typescript --project-id <project-id> > src/lib/database.types
 export interface Database {
   public: {
     Tables: {
-      documents: {
+      teams: {
         Row: {
           id: string;
-          title: string;
-          content: string;
-          created_at: string;
-          updated_at: string;
-          created_by: string | null;
-          parent_id: string | null;
-          branch_name: string | null;
-          deleted_at: string | null;
+          name: string;
+          governance: GovernanceSettings | null;
+          templateGovernance: Record<string, GovernanceSettings> | null;
         };
+      };
         Insert: {
           id?: string;
           title?: string;
@@ -227,8 +223,20 @@ export interface Database {
         };
         // ...
       };
+// ...
     };
   };
+}
+
+export interface GovernanceSettings {
+  mdSchema?: string;
+  textlintConfig?: Record<string, boolean>;
+  customDictionary?: Array<{
+    pattern: string;
+    expected: string;
+    enabled: boolean;
+    type?: 'correction' | 'exclusion';
+  }>;
 }
 ```
 

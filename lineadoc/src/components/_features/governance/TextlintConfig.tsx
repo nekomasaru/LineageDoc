@@ -14,15 +14,16 @@ interface LintRule {
     enabled: boolean;
 }
 
-export const TextlintConfig: React.FC = () => {
-    const { currentDocumentId } = useAppStore();
-    const { documents, updateTextlintConfig } = useDocumentStore();
-    const { projects, teams, updateProjectGovernance, updateTeamGovernance } = useProjectStore(); // Added
+interface TextlintConfigProps {
+    overrideTarget?: { type: 'team' | 'project' | 'template'; id: string };
+}
 
-    const [scope, setScope] = useState<GovernanceScope>('document'); // Added
+export const TextlintConfig: React.FC<TextlintConfigProps> = ({ overrideTarget }) => {
+    const { documents } = useDocumentStore();
+    const { projects, teams, updateProjectGovernance, updateTeamGovernance, updateTemplateGovernance } = useProjectStore();
+
     const [isSaved, setIsSaved] = useState(false);
 
-    // Define available rules (mapped to actual rule IDs)
     // Default rules template
     const defaultRules: LintRule[] = [
         // Technical Writing Preset
@@ -46,22 +47,21 @@ export const TextlintConfig: React.FC = () => {
         { id: 'no-dropping-the-ra', name: 'ら抜き言葉のチェック', description: '「見れる」「食べれる」などの不適切な表現を指摘します。', level: 'error', enabled: true },
     ];
 
-    const [rules, setRules] = useState<LintRule[]>(defaultRules); // Updated initialization
+    const [rules, setRules] = useState<LintRule[]>(defaultRules);
 
-    const doc = documents.find((d: Document) => d.id === currentDocumentId);
-    const project = doc ? projects.find((p: Project) => p.id === doc.projectId) : null; // Added
-    const team = project ? teams.find((t: Team) => t.id === project.teamId) : null; // Added
-
-    // Load from appropriate scope
+    // Load from appropriate target
     useEffect(() => {
+        if (!overrideTarget) return;
+
         let config: Record<string, boolean> | undefined;
 
-        if (scope === 'document') {
-            config = doc?.textlintConfig;
-        } else if (scope === 'project') {
-            config = project?.governance?.textlintConfig;
-        } else if (scope === 'team') {
-            config = team?.governance?.textlintConfig;
+        if (overrideTarget.type === 'template') {
+            const team = teams[0];
+            config = team?.templateGovernance?.[overrideTarget.id]?.textlintConfig;
+        } else if (overrideTarget.type === 'project') {
+            config = projects.find(p => p.id === overrideTarget.id)?.governance?.textlintConfig;
+        } else if (overrideTarget.type === 'team') {
+            config = teams.find(t => t.id === overrideTarget.id)?.governance?.textlintConfig;
         }
 
         if (config) {
@@ -72,43 +72,38 @@ export const TextlintConfig: React.FC = () => {
         } else {
             setRules(defaultRules);
         }
-    }, [scope, doc?.id, project?.id, team?.id]); // Updated dependencies
+    }, [overrideTarget, documents, projects, teams]);
 
     const toggleRule = (id: string) => {
         setRules(rules.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r));
     };
 
     const handleSave = () => {
+        if (!overrideTarget) return;
+
         const config: Record<string, boolean> = {};
         rules.forEach(r => {
             config[r.id] = r.enabled;
         });
 
-        if (scope === 'document' && currentDocumentId) {
-            updateTextlintConfig(currentDocumentId, config);
-        } else if (scope === 'project' && project) {
-            updateProjectGovernance(project.id, { textlintConfig: config });
-        } else if (scope === 'team' && team) {
-            updateTeamGovernance(team.id, { textlintConfig: config });
+        if (overrideTarget.type === 'template') {
+            const teamId = teams[0]?.id;
+            if (teamId) {
+                updateTemplateGovernance(teamId, overrideTarget.id, { textlintConfig: config });
+            }
+        } else if (overrideTarget.type === 'project') {
+            updateProjectGovernance(overrideTarget.id, { textlintConfig: config });
+        } else if (overrideTarget.type === 'team') {
+            updateTeamGovernance(overrideTarget.id, { textlintConfig: config });
         }
 
         setIsSaved(true);
         setTimeout(() => setIsSaved(false), 2000);
     };
 
-    const getSaveButtonText = () => {
-        if (isSaved) return '保存済み';
-        switch (scope) {
-            case 'document':
-                return 'この文書に適用';
-            case 'project':
-                return 'プロジェクトに適用';
-            case 'team':
-                return 'チームに適用';
-            default:
-                return '保存';
-        }
-    };
+    const targetLabel = overrideTarget?.type === 'team' ? '組織・チーム'
+        : overrideTarget?.type === 'project' ? 'プロジェクト'
+            : 'テンプレート';
 
     return (
         <div className="space-y-6">
@@ -119,14 +114,15 @@ export const TextlintConfig: React.FC = () => {
                         文章校正のルール
                     </h2>
                     <p className="text-sm text-slate-500 mt-1">
-                        公用文ルールやテクニカルライティングの基準に基づいて、文章の品質をチェックします。
+                        選択中の {targetLabel} に適用する、公用文ルールや文章品質のチェック項目を設定します。
                     </p>
                 </div>
-
-                <GovernanceScopeSelector scope={scope} onScopeChange={setScope} />
             </div>
+
             <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold py-1 px-2 bg-slate-100 text-slate-500 rounded-md">ENGINE: TEXTLINT / VALE</span>
+                <span className="text-[10px] font-bold py-1 px-2 bg-slate-100 text-slate-500 rounded-md uppercase tracking-widest">
+                    Rule Engine: Textlint / Vale
+                </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -136,7 +132,7 @@ export const TextlintConfig: React.FC = () => {
                         onClick={() => toggleRule(rule.id)}
                         className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${rule.enabled
                             ? 'bg-white border-cyan-100 shadow-md ring-1 ring-cyan-50'
-                            : 'bg-white border-slate-100 hover:border-slate-200 shadow-sm'
+                            : 'bg-white border-slate-100 hover:border-slate-200 shadow-sm opacity-60'
                             }`}
                     >
                         <div className="flex justify-between items-start mb-3">
@@ -170,13 +166,13 @@ export const TextlintConfig: React.FC = () => {
             <div className="flex justify-center pt-8 border-t border-slate-100 mt-8">
                 <button
                     onClick={handleSave}
-                    className={`flex items-center gap-3 px-8 py-3 rounded-2xl font-bold transition-all shadow-lg ${isSaved
-                        ? 'bg-green-600 text-white translate-y-1 shadow-green-100'
-                        : 'bg-slate-800 text-white hover:bg-slate-900 active:scale-95 shadow-slate-200'
+                    className={`flex items-center gap-2 px-10 py-3 rounded-2xl text-sm font-bold transition-all shadow-lg active:scale-95 ${isSaved
+                        ? 'bg-green-600 text-white translate-y-1'
+                        : 'bg-slate-800 text-white hover:bg-slate-900 shadow-slate-200'
                         }`}
                 >
-                    {isSaved ? <CheckCircle2 size={20} /> : <Save size={20} />}
-                    {isSaved ? '保存済み' : `${scope === 'document' ? 'この文書' : scope === 'project' ? 'プロジェクト' : 'チーム'}に適用`}
+                    {isSaved ? <CheckCircle2 size={18} /> : <Save size={18} />}
+                    {isSaved ? '保存済み' : `${targetLabel}の設定として保存`}
                 </button>
             </div>
 

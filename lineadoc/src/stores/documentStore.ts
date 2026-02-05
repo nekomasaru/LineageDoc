@@ -24,6 +24,7 @@ interface DocumentState {
     updateDocument: (id: string, content: string) => void;
     updateMdSchema: (id: string, mdSchema: string) => void;
     updateTextlintConfig: (id: string, config: Record<string, boolean>) => void;
+    updateCustomDictionary: (id: string, dictionary: any[]) => void;
     deleteDocument: (id: string) => void;
 
     setFilterProjectId: (projectId: string | null) => void;
@@ -107,6 +108,15 @@ export const useDocumentStore = create<DocumentState>()(
                 set((state) => ({
                     documents: state.documents.map((doc) =>
                         doc.id === id ? { ...doc, textlintConfig, updatedAt: now } : doc
+                    ),
+                }));
+            },
+
+            updateCustomDictionary: (id, customDictionary) => {
+                const now = new Date().toISOString();
+                set((state) => ({
+                    documents: state.documents.map((doc) =>
+                        doc.id === id ? { ...doc, customDictionary, updatedAt: now } : doc
                     ),
                 }));
             },

@@ -22,8 +22,8 @@ meta:
     - 誰が書いても同じ構造になる仕組み。
     - スキル: `api-client-save`, `db-schema-init`, `editor-pane`
 2.  **Process Layer (蓄積時 - 統制)**:
-    - 自動ガードレールによる品質担保。
-    - スキル: `quality-logic-lint`, `quality-setup-vale`
+    - 自動ガードレールによる品質担保。階層型ガバナンス（チーム/プロジェクト/テンプレート）による一元管理。
+    - スキル: `quality-logic-lint`, `quality-setup-vale`, `feature-implementation-orchestrator`
 3.  **Storage Layer (蓄積後 - 脳)**:
     - 点在する情報を知識としてつなげる。
     - スキル: `backend-supabase`, `auth-setup-client`, `migrate-local-to-db`

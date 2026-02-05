@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Project, Team } from '@/lib/types';
+import { Project, Team, GovernanceSettings } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ProjectState {
@@ -15,6 +15,7 @@ interface ProjectState {
     updateTeam: (id: string, updates: Partial<Team>) => void;
     setActiveTeam: (id: string | null) => void;
     updateTeamGovernance: (id: string, governance: Partial<Team['governance']>) => void;
+    updateTemplateGovernance: (teamId: string, templateId: string, governance: Partial<GovernanceSettings>) => void;
 
     setProjects: (projects: Project[]) => void;
     addProject: (teamId: string, name: string, description?: string, tags?: string[]) => Project;
@@ -58,6 +59,20 @@ export const useProjectStore = create<ProjectState>()(
 
             updateTeamGovernance: (id, governance) => set((state) => ({
                 teams: state.teams.map((t) => (t.id === id ? { ...t, governance: { ...t.governance, ...governance } } : t)),
+            })),
+
+            updateTemplateGovernance: (teamId, templateId, governance) => set((state) => ({
+                teams: state.teams.map((t) => {
+                    if (t.id !== teamId) return t;
+                    const prevTemplateGov = t.templateGovernance?.[templateId] || {};
+                    return {
+                        ...t,
+                        templateGovernance: {
+                            ...(t.templateGovernance || {}),
+                            [templateId]: { ...prevTemplateGov, ...governance }
+                        }
+                    };
+                }),
             })),
 
             setProjects: (projects) => set({ projects }),

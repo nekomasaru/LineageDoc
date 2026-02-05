@@ -46,27 +46,31 @@ const standardTemplates = {
     ]
 };
 
-export const CustomDictionaryEditor: React.FC = () => {
-    const { currentDocumentId } = useAppStore();
-    const { documents, updateDocument } = useDocumentStore();
-    const { projects, teams, updateProjectGovernance, updateTeamGovernance } = useProjectStore();
+interface CustomDictionaryEditorProps {
+    overrideTarget?: { type: 'team' | 'project' | 'template'; id: string };
+}
 
-    const [scope, setScope] = useState<'document' | 'project' | 'team'>('document');
+export const CustomDictionaryEditor: React.FC<CustomDictionaryEditorProps> = ({ overrideTarget }) => {
+    const { documents, updateCustomDictionary } = useDocumentStore();
+    const { projects, teams, updateProjectGovernance, updateTeamGovernance, updateTemplateGovernance } = useProjectStore();
+
     const [items, setItems] = useState<DictionaryItem[]>([]);
     const [isSaved, setIsSaved] = useState(false);
     const [showLibrary, setShowLibrary] = useState(false);
 
-    const doc = documents.find(d => d.id === currentDocumentId);
-    const project = doc ? projects.find(p => p.id === doc.projectId) : null;
-    const team = project ? teams.find(t => t.id === project.teamId) : null;
-
+    // Initial load: based on overrideTarget
     useEffect(() => {
+        if (!overrideTarget) return;
+
         let initialData: any[] = [];
-        if (scope === 'document') {
-            initialData = doc?.attributes?.customDictionary || [];
-        } else if (scope === 'project') {
+        if (overrideTarget.type === 'template') {
+            const team = teams[0];
+            initialData = team?.templateGovernance?.[overrideTarget.id]?.customDictionary || [];
+        } else if (overrideTarget.type === 'project') {
+            const project = projects.find(p => p.id === overrideTarget.id);
             initialData = project?.governance?.customDictionary || [];
-        } else if (scope === 'team') {
+        } else if (overrideTarget.type === 'team') {
+            const team = teams.find(t => t.id === overrideTarget.id);
             initialData = team?.governance?.customDictionary || [];
         }
 
@@ -75,7 +79,7 @@ export const CustomDictionaryEditor: React.FC = () => {
             ...item,
             type: item.type || (item.expected && item.expected !== item.pattern ? 'correction' : 'exclusion')
         })));
-    }, [scope, doc?.id, project?.id, team?.id]);
+    }, [overrideTarget, documents, projects, teams]);
 
     const addItem = (type: 'correction' | 'exclusion') => {
         setItems([...items, { id: Math.random().toString(36).substr(2, 9), pattern: '', expected: '', enabled: true, type }]);
@@ -90,6 +94,8 @@ export const CustomDictionaryEditor: React.FC = () => {
     };
 
     const handleSave = () => {
+        if (!overrideTarget) return;
+
         const govItems = items.filter(i => i.pattern).map(({ pattern, expected, enabled, category, type }) => ({
             pattern,
             expected: type === 'exclusion' ? pattern : expected,
@@ -98,12 +104,15 @@ export const CustomDictionaryEditor: React.FC = () => {
             type
         }));
 
-        if (scope === 'document' && currentDocumentId) {
-            // Attribute sync logic
-        } else if (scope === 'project' && project) {
-            updateProjectGovernance(project.id, { customDictionary: govItems });
-        } else if (scope === 'team' && team) {
-            updateTeamGovernance(team.id, { customDictionary: govItems });
+        if (overrideTarget.type === 'template') {
+            const teamId = teams[0]?.id;
+            if (teamId) {
+                updateTemplateGovernance(teamId, overrideTarget.id, { customDictionary: govItems });
+            }
+        } else if (overrideTarget.type === 'project') {
+            updateProjectGovernance(overrideTarget.id, { customDictionary: govItems });
+        } else if (overrideTarget.type === 'team') {
+            updateTeamGovernance(overrideTarget.id, { customDictionary: govItems });
         }
 
         setIsSaved(true);
@@ -207,6 +216,10 @@ export const CustomDictionaryEditor: React.FC = () => {
         );
     };
 
+    const targetLabel = overrideTarget?.type === 'team' ? '組織・チーム'
+        : overrideTarget?.type === 'project' ? 'プロジェクト'
+            : 'テンプレート';
+
     return (
         <div className="space-y-6">
             {showLibrary && (
@@ -277,12 +290,7 @@ export const CustomDictionaryEditor: React.FC = () => {
                         <BookOpen className="text-cyan-600" size={24} />
                         カスタム用語・表記辞書
                     </h2>
-                    <p className="text-sm text-slate-500 mt-1">表記の統一ルールや、標準チェックの例外として許可したい単語を管理します。</p>
-                </div>
-                <div className="flex bg-slate-100 p-1 rounded-xl">
-                    <button onClick={() => setScope('document')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${scope === 'document' ? 'bg-white text-green-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>文書</button>
-                    <button onClick={() => setScope('project')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${scope === 'project' ? 'bg-white text-cyan-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>プロジェクト</button>
-                    <button onClick={() => setScope('team')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${scope === 'team' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>チーム</button>
+                    <p className="text-sm text-slate-500 mt-1">選択中の {targetLabel} に適用する、表記の統一ルールや例外単語を管理します。</p>
                 </div>
             </div>
 
@@ -297,9 +305,9 @@ export const CustomDictionaryEditor: React.FC = () => {
             {renderTable('exclusion')}
 
             <div className="flex justify-center pt-8 border-t border-slate-100 mt-8">
-                <button onClick={handleSave} className={`flex items-center gap-2 px-10 py-3 rounded-2xl text-sm font-bold transition-all shadow-lg ${isSaved ? 'bg-green-600 text-white translate-y-1' : 'bg-slate-800 text-white hover:bg-slate-900 active:scale-95 shadow-slate-200'}`}>
+                <button onClick={handleSave} className={`flex items-center gap-2 px-10 py-3 rounded-2xl text-sm font-bold transition-all shadow-lg active:scale-95 ${isSaved ? 'bg-green-600 text-white translate-y-1' : 'bg-slate-800 text-white hover:bg-slate-900 shadow-slate-200'}`}>
                     {isSaved ? <CheckCircle2 size={18} /> : <Save size={18} />}
-                    {isSaved ? '保存済み' : `${scope === 'document' ? 'この文書' : scope === 'project' ? 'プロジェクト' : 'チーム'}の設定として保存`}
+                    {isSaved ? '保存済み' : `${targetLabel}の設定として保存`}
                 </button>
             </div>
 
