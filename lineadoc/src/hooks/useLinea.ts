@@ -16,6 +16,10 @@ export function useLinea(documentId?: string | null) {
 
     const storageKey = documentId ? `${STORAGE_BASE_KEY}-${documentId}` : null;
 
+    // --- NEW: 同期的な整合性チェック ---
+    // 引数の documentId と、実際に読み込みが完了した loadedId が一致しているかを確認
+    const effectivelyLoaded = isLoaded && documentId === loadedId;
+
     // Initial load from localStorage
     useEffect(() => {
         if (typeof window === 'undefined' || !storageKey || !documentId) {
@@ -25,9 +29,8 @@ export function useLinea(documentId?: string | null) {
             return;
         }
 
-        // --- NEW: Reset loading state on ID change ---
+        // IDが変わった瞬間に一旦ロード未完了にする（非同期処理の開始）
         setIsLoaded(false);
-        setLoadedId(null);
 
         const stored = localStorage.getItem(storageKey);
         if (stored) {
@@ -49,18 +52,18 @@ export function useLinea(documentId?: string | null) {
 
     // Save to localStorage whenever events change
     useEffect(() => {
-        // --- NEW: Ensure we only save if isLoaded is true AND matches the documentId ---
-        if (typeof window === 'undefined' || !isLoaded || !storageKey || !documentId || loadedId !== documentId) return;
+        // IDが一致し、ロードが完了している場合のみ保存を許可
+        if (typeof window === 'undefined' || !effectivelyLoaded || !storageKey || !documentId) return;
 
         if (events.length > 0) {
             localStorage.setItem(storageKey, JSON.stringify(events));
-            // 本文も保存用に同期（簡易実装）
+            // 本文も保存用に同期
             const latest = events[events.length - 1];
             if (latest.content && documentId) {
                 localStorage.setItem(`lineadoc-doc-content-${documentId}`, latest.content);
             }
         }
-    }, [events, isLoaded, storageKey, documentId, loadedId]);
+    }, [events, effectivelyLoaded, storageKey, documentId]);
 
     const addEvent = useCallback((
         content: string,
@@ -68,6 +71,11 @@ export function useLinea(documentId?: string | null) {
         parentId: string | null = null,
         summary?: string
     ) => {
+        if (!effectivelyLoaded) {
+            console.warn('[Linea] addEvent called before load completed. Skipping.');
+            return {} as LineaEvent;
+        }
+
         const latest = events.length > 0 ? events[events.length - 1] : null;
         const nextVersion = (latest?.version ?? 0) + 1;
 
@@ -83,7 +91,7 @@ export function useLinea(documentId?: string | null) {
 
         setEvents((prev) => [...prev, newEvent]);
         return newEvent;
-    }, [events.length]);
+    }, [events.length, effectivelyLoaded]);
 
     const clearEvents = useCallback(() => {
         setEvents([]);
@@ -112,24 +120,26 @@ export function useLinea(documentId?: string | null) {
     }, [storageKey]);
 
     const getEventById = useCallback((id: string) => {
+        if (!effectivelyLoaded) return undefined;
         return events.find((e) => e.id === id);
-    }, [events]);
+    }, [events, effectivelyLoaded]);
 
     const getLatestEvent = useCallback(() => {
-        if (events.length === 0) return undefined;
+        if (!effectivelyLoaded || events.length === 0) return undefined;
         return events[events.length - 1];
-    }, [events]);
+    }, [events, effectivelyLoaded]);
 
     const getInitialEvent = useCallback(() => {
-        if (events.length === 0) return undefined;
+        if (!effectivelyLoaded || events.length === 0) return undefined;
         return events[0];
-    }, [events]);
+    }, [events, effectivelyLoaded]);
 
     const getPreviousEvent = useCallback((id: string) => {
+        if (!effectivelyLoaded) return undefined;
         const current = events.find((e) => e.id === id);
         if (!current || !current.parentId) return undefined;
         return events.find((e) => e.id === current.parentId);
-    }, [events]);
+    }, [events, effectivelyLoaded]);
 
     const getPreviousContent = useCallback(() => {
         const latest = getLatestEvent();
@@ -137,8 +147,9 @@ export function useLinea(documentId?: string | null) {
     }, [getLatestEvent]);
 
     const getEventByVersion = useCallback((version: number) => {
+        if (!effectivelyLoaded) return undefined;
         return events.find((e) => e.version === version);
-    }, [events]);
+    }, [events, effectivelyLoaded]);
 
     const updateEventSummary = useCallback((eventId: string, newSummary: string) => {
         setEvents(prev => prev.map(e =>
@@ -153,8 +164,9 @@ export function useLinea(documentId?: string | null) {
     }, []);
 
     return {
-        events,
-        isLoaded,
+        events: effectivelyLoaded ? events : [],
+        isLoaded: effectivelyLoaded,
+        loadedId,
         addEvent,
         clearEvents,
         resetWithContent,

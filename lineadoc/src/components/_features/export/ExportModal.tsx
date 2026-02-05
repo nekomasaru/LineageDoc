@@ -3,20 +3,81 @@
 import { useAppStore } from '@/stores/appStore';
 import { FileText, FileJson, FileType, Check, X } from 'lucide-react';
 import { useState } from 'react';
+import { convertMarkdownToDocx } from '@/app/actions/interop';
+import { useEditorStore } from '@/stores/editorStore';
 
-type ExportFormat = 'markdown' | 'text' | 'knowledge';
+type ExportFormat = 'markdown' | 'text' | 'docx' | 'knowledge';
 
 export function ExportModal() {
-    const { activeModal, setActiveModal } = useAppStore();
+    const { activeModal, setActiveModal, currentDocumentTitle } = useAppStore();
     const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('markdown');
+    const { markdown } = useEditorStore();
 
     if (activeModal !== 'export') return null;
 
     const handleClose = () => setActiveModal(null);
 
-    const handleExport = () => {
+    const handleExport = async () => {
         console.log(`Exporting as ${selectedFormat}...`);
-        // TODO: Implement actual export logic
+
+        try {
+            if (selectedFormat === 'markdown') {
+                const blob = new Blob([markdown], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${currentDocumentTitle || 'document'}.md`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } else if (selectedFormat === 'text') {
+                const blob = new Blob([markdown], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${currentDocumentTitle || 'document'}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } else if (selectedFormat === 'docx') {
+                const result = await convertMarkdownToDocx(markdown, currentDocumentTitle || 'document');
+
+                if (result.success && result.data) {
+                    console.log(`Received docx data, base64 length: ${result.data.length}`);
+
+                    try {
+                        const base64Data = result.data;
+                        const response = await fetch(`data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${base64Data}`);
+                        const blob = await response.blob();
+
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        // ファイル名から不適切な文字を削除
+                        const safeTitle = (currentDocumentTitle || 'document').replace(/[\\/:*?"<>|]/g, '_');
+                        a.download = `${safeTitle}.docx`;
+
+                        document.body.appendChild(a);
+                        a.click();
+
+                        // クリーンアップ
+                        setTimeout(() => {
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }, 100);
+
+                    } catch (err) {
+                        console.error('Binary conversion failed:', err);
+                        alert('バイナリ変換に失敗しました。');
+                    }
+                } else {
+                    console.error('Export failed:', result.error);
+                    alert(`エクスポートに失敗しました: ${result.error}`);
+                }
+            }
+        } catch (error) {
+            console.error('Export failed:', error);
+        }
+
         handleClose();
     };
 
@@ -34,6 +95,13 @@ export function ExportModal() {
             description: '装飾を除いたプレーンテキスト (.txt) で出力します。',
             icon: FileType,
             color: 'bg-slate-50 text-slate-600 border-slate-200',
+        },
+        {
+            id: 'docx',
+            label: 'Word (.docx)',
+            description: 'Microsoft Word形式で出力します。',
+            icon: FileText,
+            color: 'bg-blue-50 text-blue-600 border-blue-200',
         },
         {
             id: 'knowledge',

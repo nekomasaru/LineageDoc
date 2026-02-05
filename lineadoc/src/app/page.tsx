@@ -77,7 +77,8 @@ export default function V2Page() {
         setPendingBranchComment(null);
 
         // Load latest content from history if available
-        if (currentDocumentId && linea.isLoaded) {
+        // --- NEW: 厳格な読込完了チェック (linea.isLoaded && loadedId 一致) ---
+        if (currentDocumentId && linea.isLoaded && linea.loadedId === currentDocumentId) {
             const latest = getLatestEvent();
             if (latest && latest.content) {
                 setMarkdown(latest.content);
@@ -96,7 +97,7 @@ export default function V2Page() {
                 }
             }
         }
-    }, [currentDocumentId, linea.isLoaded]); // getLatestEvent is stable enough if events is in deps of useMemo, but depends on events.
+    }, [currentDocumentId, linea.isLoaded, linea.loadedId]); // deps に loadedId を追加
 
     const selectedEvent = useMemo(() =>
         selectedEventId ? getEventById(selectedEventId) : null
@@ -107,6 +108,12 @@ export default function V2Page() {
         , [selectedEventId, getPreviousEvent]);
 
     const handleSave = useCallback((forcedComment?: string) => {
+        // --- NEW: 読込完了前や変更中の保存を禁止 ---
+        if (!linea.isLoaded || linea.loadedId !== currentDocumentId) {
+            console.warn('[Page] Save blocked: document still loading or changing.');
+            return;
+        }
+
         if (currentDocumentId && markdown) {
             // 1. Update Document Metadata/Content
             updateDocument(currentDocumentId, markdown);

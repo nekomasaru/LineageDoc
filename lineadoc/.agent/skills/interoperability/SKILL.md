@@ -30,9 +30,12 @@ LineaDocにおける外部ドキュメント（docx/PDF）の取り込み（イ�
 
 # エクスポート・ワークフロー (Outbound)
 
-## 1. Webベース docx 出力 (`html-to-docx`)
+## 1. サーバーサイド docx 出力 (`html-to-docx` / Server Action)
 - **目的**: プレビューで見ている見た目をそのままWord化。
-- **利点**: ブラウザ完結。
+- **実装**: `src/app/actions/interop.ts` にて実行。
+- **安定化**: 
+    - Windows環境等のバイナリ破損を防ぐため、クライアントへの返却は Base64 string で行い、フロントエンドで Data URL (fetch) スキームを用いて Blob 化する。
+    - HTML 構造に UTF-8 宣言を含め、Word 側のパースエラーを最小限に抑える。
 
 ## 2. 構造化 docx 生成 (`docx.js`)
 - **目的**: Wordの「スタイル」機能を活用した高度な制御。

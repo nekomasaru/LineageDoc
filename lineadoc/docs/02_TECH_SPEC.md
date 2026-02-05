@@ -155,12 +155,14 @@ Bi-directional scroll synchronization ensures the editor and preview pane stay a
 ### 4. Data Persistence & Isolation
 - **Storage**: `localStorage` (Keyed by `documentId`).
 - **Isolation**: `useLinea` hook uses `loadedId` guarding to prevent data leakage during document transitions.
+  - `effectivelyLoaded` (isLoaded && documentId === loadedId) フラグにより、同期不全状態での保存・取得を遮断。
 - **Initialization**: Automatically creates `v1` from template content on first load.
 
 ### 5. Template & Governance System
 - **Template Schema**: `initialContent` and `initialSchema` (DSL) are injected upon creation.
 - **MDSCHEMA Engine**: Validates document structure against the DSL defined in the `Document` meta.
 - **Textlint Engine**: Integrated via local API for Japanese prose quality.
+- **Typography**: `globals.css` により A4 プレビュー用の H1-H4 スタイルを定義し、公文書の階層構造を視覚化。
 
 ### 6. Future AI & Governance Integration (Phase 4-5)
 
@@ -179,13 +181,14 @@ Bi-directional scroll synchronization ensures the editor and preview pane stay a
 ## 7. Office & PDF Interoperability (Planned Phase 1-4)
 
 ### 1. Inbound Pipeline
-- **docx**: `mammoth.js` for semantic HTML extraction.
-- **PDF**: Vertex AI (Gemini 1.5 Pro) for visual structure and layout analysis.
-- **Merge**: "External Sync" flow where re-imported docs appear as AI-suggested branches.
+- **docx**: `mammoth.js` for semantic HTML extraction. 見出し(#)・段落・リスト構造を抽出。
+- **PDF**: Vertex AI (Gemini 1.5 Pro) for visual structure and layout analysis (Planned).
+- **Merge**: "External Sync" flow where re-imported docs appear as AI-suggested branches (Planned).
 
 ### 2. Outbound Pipeline
-- **Quick docx**: `html-to-docx` based on the A4 CSS template.
-- **Professional docx**: Server-side `Pandoc` using custom reference templates for official government formats.
+- **Web-based docx**: Server side `html-to-docx` based on the A4 CSS template. 
+  - **Stability**: Base64 -> Blob 変換に Data URL スキームを採用し、Windows環境でのバイナリ破損を防止。
+- **Professional docx**: Server-side `Pandoc` using custom reference templates for official government formats (Planned).
 
 ### 3. Visual Auditing
 - Multi-modal verification comparing the **Rendered PDF layout** against **Markdown source** to detect numbering errors or structural mismatches visually.

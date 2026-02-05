@@ -31,7 +31,8 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
     const { activeProjectId, projects, activeTeamId, teams } = useProjectStore();
     const { addDocument, updateDocument } = useDocumentStore();
 
-    const { addEvent, getLatestEvent } = useLinea(currentDocumentId);
+    const linea = useLinea(currentDocumentId);
+    const { addEvent, getLatestEvent } = linea;
 
     const activeProject = projects.find(p => p.id === activeProjectId);
     const activeTeam = teams.find(t => t.id === activeTeamId);
@@ -42,6 +43,13 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
             onSave();
             return;
         }
+
+        // --- NEW: 読込完了前やID不一致時の保存を禁止 ---
+        if (!linea.isLoaded || linea.loadedId !== currentDocumentId) {
+            console.warn('[Header] Save blocked: document still loading or changing.');
+            return;
+        }
+
         if (currentDocumentId && markdown) {
             // 1. Update Document Store
             updateDocument(currentDocumentId, markdown);
@@ -55,7 +63,7 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
                 console.log('Saved (No content change, history skipped)');
             }
         }
-    }, [currentDocumentId, markdown, updateDocument, addEvent, getLatestEvent]);
+    }, [currentDocumentId, markdown, updateDocument, addEvent, getLatestEvent, linea.isLoaded, linea.loadedId, onSave]);
 
     const handleHomeClick = useCallback(() => {
         setViewMode('hub');
@@ -71,24 +79,35 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
         fileInputRef.current?.click();
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const content = event.target?.result as string;
-            if (content) {
-                // Remove extension from title
-                const title = file.name.replace(/\.[^/.]+$/, "");
-                const projectId = activeProjectId || 'default-project';
+        try {
+            let content = '';
+            const title = file.name.replace(/\.[^/.]+$/, "");
 
+            if (file.name.endsWith('.docx')) {
+                const { importDocx } = await import('@/lib/interop/docx-utils');
+                content = await importDocx(file);
+                console.log('Imported from docx');
+            } else {
+                const reader = new FileReader();
+                content = await new Promise((resolve) => {
+                    reader.onload = (event) => resolve(event.target?.result as string);
+                    reader.readAsText(file);
+                });
+            }
+
+            if (content) {
+                const projectId = activeProjectId || 'default-project';
                 const newDoc = addDocument(projectId, title, content);
                 setCurrentDocument(newDoc.id, newDoc.title);
                 console.log('Imported document:', newDoc);
             }
-        };
-        reader.readAsText(file);
+        } catch (error) {
+            console.error('Import failed:', error);
+        }
 
         // Reset input
         e.target.value = '';
@@ -171,7 +190,7 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
                             type="file"
                             ref={fileInputRef}
                             onChange={handleFileChange}
-                            accept=".md,.txt"
+                            accept=".md,.txt,.docx"
                             className="hidden"
                         />
                         <button

@@ -29,7 +29,16 @@
    - **カスタムホットキー**: 編集モード・ワークモードの瞬時切り替え（Ctrl+E, Ctrl+M）。
    - **永続化設定**: ブラウザを閉じても設定を維持。
 
-5. **Supabase Integration** [TODO]
+5. **Office Interoperability (Phase 1)** [DONE]
+   - **docx Import**: `mammoth.js` による構造化インポート機能。
+   - **docx Export**: Server Action + `html-to-docx` による公文書スタイル書き出し。
+   - **バイナリ整合性**: 破損防止のための堅牢なエンコーディングとサニタイズ処理。
+
+6. **Stability & Refinement** [DONE]
+   - **データ整合性ガード**: ドキュメント切り替え時のレースコンディション解消 (`effectivelyLoaded` 判定)。
+   - **タイポグラフィ強化**: プレビュー画面での見出し（H1-H4）の視覚的階層化。
+
+7. **Supabase Integration** [TODO]
    - データ保存・管理・マルチデバイス同期。
 
 ## UI Design Guidelines

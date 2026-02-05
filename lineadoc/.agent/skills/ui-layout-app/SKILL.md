@@ -101,6 +101,7 @@ meta:
 | **カード** | `bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow` |
 | **右パネル** | `bg-slate-50 border-l border-slate-200` |
 | **パンくず** | `text-slate-500 hover:text-cyan-700` |
+| **タイポグラフィ** | `.prose` 内で A4 用の H1-H4 サイズを `!important` で定義し、階層構造を維持する。 |
 
 # 禁止事項
 
