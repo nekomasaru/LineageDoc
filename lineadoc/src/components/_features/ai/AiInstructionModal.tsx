@@ -65,7 +65,7 @@ export function AiInstructionModal({
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
                     <div className="flex items-center gap-2">
                         <MessageSquare className="text-purple-600" size={20} />
-                        <h2 className="text-lg font-semibold text-slate-800">AI アシスタントへの指示</h2>
+                        <h2 className="text-lg font-semibold text-slate-800">LineaDoc AI 指示</h2>
                     </div>
                     <button
                         onClick={onClose}

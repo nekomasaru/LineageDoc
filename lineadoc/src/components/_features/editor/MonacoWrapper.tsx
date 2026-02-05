@@ -13,7 +13,7 @@ interface MonacoWrapperProps {
   onChange: (value: string) => void;
   onVisibleLineChange?: (line: number) => void;
   onSave?: () => void;
-  onAiMention?: () => void; // AIメンショントリガー
+  onAiMention?: (action?: string) => void; // AIメンショントリガー
   onZoom?: (delta: number) => void; // Ctrl+Wheel zoom callback
   targetLine?: number;
   compareWith?: string; // 保存済みの比較対象 (vN-1)
@@ -383,7 +383,7 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
         selectionTimeout = setTimeout(() => {
           const selection = editor.getSelection();
           const model = editor.getModel();
-          if (selection && model) {
+          if (selection && model && !selection.isEmpty()) {
             const selectedText = model.getValueInRange(selection);
             if (selectedText.trim()) {
               useAppStore.getState().setAiContext({
@@ -391,7 +391,29 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
                 source: 'monaco',
                 range: selection
               });
+
+              // Calculate tooltip position
+              const startPos = selection.getStartPosition();
+              const endPos = selection.getEndPosition();
+              const startCoords = editor.getScrolledVisiblePosition(startPos);
+              const endCoords = editor.getScrolledVisiblePosition(endPos);
+
+              if (startCoords && endCoords && wrapperRef.current) {
+                const rect = wrapperRef.current.getBoundingClientRect();
+                // We use center of selection for x, and top of start for y
+                const x = rect.left + (startCoords.left + endCoords.left) / 2;
+                const y = rect.top + startCoords.top;
+
+                useAppStore.getState().setAiSelectionTooltip({
+                  isVisible: true,
+                  x,
+                  y
+                });
+              }
             }
+          } else {
+            // Hide tooltip if selection is empty
+            useAppStore.getState().setAiSelectionTooltip({ isVisible: false });
           }
         }, 300);
       });
@@ -400,9 +422,29 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
         updateDiffDecorations();
 
         // AI Mention Detection
-        // If the change inserted "@AI ", trigger the callback
-        if (e.changes.length === 1 && e.changes[0].text === '@AI ') {
-          if (onAiMentionRef.current) onAiMentionRef.current();
+        // If the change inserted "@AI " or "/ai ", trigger the callback
+        const insertedText = e.changes[0].text;
+        if (e.changes.length === 1) {
+          const cmdMap: Record<string, string> = {
+            '@AI ': '',
+            '/ai ': '',
+            '/formal ': 'official_polish',
+            '/plain ': 'plainJapanese',
+            '/qa ': 'qa',
+            '/summarize ': 'summarize',
+            '/notice ': 'notice_draft',
+            '/outline ': 'outline_draft',
+            '/todo ': 'todo_extract',
+            '/agenda ': 'agenda_draft',
+            '/points ': 'points_extract',
+            '/consistency ': 'consistency_check'
+          };
+
+          if (insertedText in cmdMap) {
+            if (onAiMentionRef.current) {
+              onAiMentionRef.current(cmdMap[insertedText] || undefined);
+            }
+          }
         }
 
         if (isAutoNumberingRef.current) return;

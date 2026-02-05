@@ -29,10 +29,33 @@ export type WorkMode = 'write' | 'proof';
  */
 export type RightPanelTab = 'history' | 'attributes' | 'graph' | 'quality' | 'assistant' | null;
 
+export interface AIChatMessage {
+    id: string;
+    role: 'assistant' | 'user';
+    content: string;
+    timestamp: Date;
+    sources?: Array<{
+        title: string;
+        url?: string;
+        type: 'gov' | 'project' | 'web';
+        preview?: string;
+    }>;
+    confidence?: 'high' | 'mid' | 'low';
+}
+
 export interface AIContext {
     selectedText: string;
     source: 'monaco' | 'blocknote' | null;
     range?: any; // Selection range info
+    pendingAction?: string | null; // AIActionType と同期
+    pendingOptions?: any; // Sub-action settings (tone, etc.)
+    sessionMessages: AIChatMessage[];
+}
+
+export interface AISelectionTooltipState {
+    isVisible: boolean;
+    x: number;
+    y: number;
 }
 
 interface AppState {
@@ -51,8 +74,12 @@ interface AppState {
 
     // ===== AI アシスタントコンテキスト =====
     aiContext: AIContext;
+    aiSelectionTooltip: AISelectionTooltipState;
     setAiContext: (context: Partial<AIContext>) => void;
+    setAiSelectionTooltip: (state: Partial<AISelectionTooltipState>) => void;
     clearAiContext: () => void;
+    clearAiSession: () => void;
+    addAiMessage: (message: Omit<AIChatMessage, 'id' | 'timestamp'>) => void;
 
     // ===== 現在のドキュメント (Spoke Context) =====
     currentDocumentId: string | null;
@@ -83,13 +110,34 @@ export const useAppStore = create<AppState>()(
             })),
 
             // AI Context
-            aiContext: { selectedText: '', source: null },
+            aiContext: { selectedText: '', source: null, sessionMessages: [] },
+            aiSelectionTooltip: { isVisible: false, x: 0, y: 0 },
             setAiContext: (context) => set((state) => ({
                 aiContext: { ...state.aiContext, ...context }
             })),
-            clearAiContext: () => set({
-                aiContext: { selectedText: '', source: null }
-            }),
+            setAiSelectionTooltip: (tooltip) => set((state) => ({
+                aiSelectionTooltip: { ...state.aiSelectionTooltip, ...tooltip }
+            })),
+            clearAiContext: () => set((state) => ({
+                aiContext: { ...state.aiContext, selectedText: '', source: null },
+                aiSelectionTooltip: { isVisible: false, x: 0, y: 0 }
+            })),
+            clearAiSession: () => set((state) => ({
+                aiContext: { ...state.aiContext, sessionMessages: [] }
+            })),
+            addAiMessage: (message) => set((state) => ({
+                aiContext: {
+                    ...state.aiContext,
+                    sessionMessages: [
+                        ...state.aiContext.sessionMessages,
+                        {
+                            ...message,
+                            id: Math.random().toString(36).substring(7),
+                            timestamp: new Date()
+                        }
+                    ]
+                }
+            })),
 
             // Document Context
             currentDocumentId: null,

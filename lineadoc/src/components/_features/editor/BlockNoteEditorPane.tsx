@@ -22,6 +22,18 @@ import {
 import { translateSlashMenuItems, filterJapaneseSlashMenuItems } from '@/lib/blockNote/japaneseSlashMenu';
 import { useCreateBlockNote, SuggestionMenuController, getDefaultReactSlashMenuItems } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/mantine';
+import {
+    Sparkles,
+    Zap,
+    Type,
+    MessageSquare,
+    FileText,
+    BrainCircuit,
+    CheckSquare,
+    LineChart,
+    AlertCircle,
+    Layout
+} from 'lucide-react';
 
 // CSSは global.css で一括読み込みに変更
 
@@ -39,7 +51,7 @@ interface BlockNoteEditorPaneProps {
     /** エディタ操作用ハンドルを受け取るRef */
     handleRef?: React.Ref<BlockNoteEditorHandle>;
     /** AIメンショントリガー */
-    onAiMention?: () => void;
+    onAiMention?: (action?: string) => void;
     /** 明示的に渡すMarkdown（ストアのmarkdownを直接参照するのをやめ、このpropを優先する） */
     markdown?: string;
 }
@@ -177,7 +189,9 @@ function BlockNoteEditorInner({ className = '', overrideContent, onChange, handl
 
         const handleSelectionChange = () => {
             const selection = editor.getSelection();
-            if (selection && selection.blocks.length > 0) {
+            const nativeSelection = window.getSelection();
+
+            if (selection && selection.blocks.length > 0 && nativeSelection && !nativeSelection.isCollapsed) {
                 // Get selected text from blocks
                 const selectedText = selection.blocks
                     .map((block: any) => {
@@ -194,7 +208,22 @@ function BlockNoteEditorInner({ className = '', overrideContent, onChange, handl
                         source: 'blocknote',
                         range: selection
                     });
+
+                    // Calculate tooltip position using native selection
+                    const range = nativeSelection.getRangeAt(0);
+                    const rect = range.getBoundingClientRect();
+
+                    if (rect.width > 0) {
+                        useAppStore.getState().setAiSelectionTooltip({
+                            isVisible: true,
+                            x: rect.left + rect.width / 2,
+                            y: rect.top
+                        });
+                    }
                 }
+            } else {
+                // Hide tooltip if selection is empty or collapsed
+                useAppStore.getState().setAiSelectionTooltip({ isVisible: false });
             }
         };
 
@@ -272,16 +301,100 @@ function BlockNoteEditorInner({ className = '', overrideContent, onChange, handl
     // @メンションメニュー項目
     const getMentionMenuItems = useCallback(
         async (query: string) => {
-            return [
+            const aiItems = [
                 {
-                    title: "AI Assistant",
+                    title: "LineaDoc AI エージェント",
                     onItemClick: () => onAiMention?.(),
-                    aliases: ["ai", "gpt"],
+                    aliases: ["ai", "gpt", "linea", "agent"],
                     group: "AI",
                     icon: <div className="w-5 h-5 bg-purple-100 text-purple-600 rounded flex items-center justify-center font-bold text-xs">AI</div>,
                     subtext: "AIに指示を出してブランチを作成"
+                },
+                {
+                    title: "要約する (/summarize)",
+                    onItemClick: () => onAiMention?.('summarize'),
+                    aliases: ["summarize", "yo"],
+                    group: "AI - 編集",
+                    icon: <Sparkles size={16} className="text-indigo-500" />,
+                    subtext: "選択範囲の要点を整理"
+                },
+                {
+                    title: "公用文磨き上げ (/formal)",
+                    onItemClick: () => onAiMention?.('official_polish'),
+                    aliases: ["formal", "official"],
+                    group: "AI - 編集",
+                    icon: <Zap size={16} className="text-purple-500" />,
+                    subtext: "公用文書ルールに基づき磨き上げ"
+                },
+                {
+                    title: "やさしい日本語 (/plain)",
+                    onItemClick: () => onAiMention?.('plainJapanese'),
+                    aliases: ["plain", "easy"],
+                    group: "AI - 編集",
+                    icon: <Type size={16} className="text-orange-500" />,
+                    subtext: "市民にわかりやすい言葉に変換"
+                },
+                {
+                    title: "答弁案作成 (/qa)",
+                    onItemClick: () => onAiMention?.('qa'),
+                    aliases: ["qa", "faq"],
+                    group: "AI - 生成",
+                    icon: <MessageSquare size={16} className="text-blue-500" />,
+                    subtext: "資料から想定問答集を作成"
+                },
+                {
+                    title: "通知・案内案 (/notice)",
+                    onItemClick: () => onAiMention?.('notice_draft'),
+                    aliases: ["notice", "mail"],
+                    group: "AI - 生成",
+                    icon: <FileText size={16} className="text-blue-600" />,
+                    subtext: "標準的な公文書形式でドラフト生成"
+                },
+                {
+                    title: "構成案作成 (/outline)",
+                    onItemClick: () => onAiMention?.('outline_draft'),
+                    aliases: ["outline", "draft"],
+                    group: "AI - 生成",
+                    icon: <BrainCircuit size={16} className="text-indigo-600" />,
+                    subtext: "施策やプロジェクトの骨子を作成"
+                },
+                {
+                    title: "アジェンダ作成 (/agenda)",
+                    onItemClick: () => onAiMention?.('agenda_draft'),
+                    aliases: ["agenda", "meeting"],
+                    group: "AI - 生成",
+                    icon: <Layout size={16} className="text-emerald-500" />,
+                    subtext: "会議の次第やアジェンダを生成"
+                },
+                {
+                    title: "ToDo抽出 (/todo)",
+                    onItemClick: () => onAiMention?.('todo_extract'),
+                    aliases: ["todo", "task"],
+                    group: "AI - 分析",
+                    icon: <CheckSquare size={16} className="text-slate-500" />,
+                    subtext: "今後の対応事項をリスト化"
+                },
+                {
+                    title: "論点・要点整理 (/points)",
+                    onItemClick: () => onAiMention?.('points_extract'),
+                    aliases: ["points", "key"],
+                    group: "AI - 分析",
+                    icon: <LineChart size={16} className="text-slate-500" />,
+                    subtext: "重要な論点を箇条書きで抽出"
+                },
+                {
+                    title: "論理チェック (/consistency)",
+                    onItemClick: () => onAiMention?.('consistency_check'),
+                    aliases: ["consistency", "check"],
+                    group: "AI - 分析",
+                    icon: <AlertCircle size={16} className="text-red-500" />,
+                    subtext: "全体の矛盾や齟齬をチェック"
                 }
-            ].filter((item) => item.title.toLowerCase().includes(query.toLowerCase()));
+            ];
+            return aiItems.filter((item) =>
+                item.title.toLowerCase().includes(query.toLowerCase()) ||
+                item.aliases.some(a => a.toLowerCase().includes(query.toLowerCase()))
+            );
         },
         [onAiMention]
     );

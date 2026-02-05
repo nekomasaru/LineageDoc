@@ -77,16 +77,16 @@
 - **Quality Tab (Governance)**:
     - MDSCHEMA/Textlintによる校正結果の表示。
     - 公文書ガイドラインへの準拠チェック。
-- **Assistant Tab (✨)**:
+- **LineaDoc AI Tab (✨)**:
     - **Selection Context**: 現在選択中のテキストプレビューを表示。
-    - **Quick Actions**: ✨要約、💎磨き上げ、🖋️生成 などのプリセットボタン。
-    - **Chat UI**: 吹き出し形式の対話画面。
+    - **Command Bar**: 横スクロール形式のクイックアクション（公用文、要約、論理性チェック等）。
+    - **Chat UI**: 「LineaDoc AI エージェント」としての吹き出し形式の対話画面。
     - **Direct Apply**: AIの提案テキストをエディタへ直接反映するボタン。
 - **Graph Tab**:
     - 関連ドキュメントのネットワークグラフ表示。
 
-### D. AI Assistant Integration
-- **@Mention**: エディタ内で `@AI` と入力すると「AIコマンドモーダル」が起動。
+### D. LineaDoc AI Integration
+- **@Mention**: エディタ内で `@` と入力すると「LineaDoc AI エージェント」のおすすめメニューが起動。
 - **Draft Generation**: 指示内容に基づき、新しいブランチ（案）を自動生成。
 
 ---

@@ -289,14 +289,14 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
                             <ShieldCheck size={18} />
                         </button>
 
-                        {/* AI Assistant Toggle */}
+                        {/* AI Toggle */}
                         <button
                             onClick={() => toggleRightPanel('assistant')}
                             className={`p-2 rounded-md transition-all ${rightPanelTab === 'assistant'
                                 ? 'bg-purple-100 text-purple-700 shadow-sm'
                                 : 'text-slate-400 hover:bg-purple-50 hover:text-purple-600'
                                 }`}
-                            title="AI アシスタント (AI Chat)"
+                            title="LineaDoc AI"
                         >
                             <Sparkles size={18} className={rightPanelTab === 'assistant' ? 'animate-pulse' : ''} />
                         </button>

@@ -24,6 +24,7 @@ import { LegalModal } from '@/components/_features/legal/LegalModal';
 import { SettingsModal } from '@/components/_features/settings/SettingsModal';
 import { useHotkeys } from '@/hooks/useHotkeys';
 import { GovernanceView } from '@/components/_features/governance/GovernanceView';
+import { AISelectionTooltip } from '@/components/_features/ai/AISelectionTooltip';
 
 export default function V2Page() {
     const {
@@ -319,7 +320,14 @@ export default function V2Page() {
                         {workMode === 'write' ? (
                             <SplitEditorLayout
                                 ref={splitEditorRef}
-                                onAiMention={() => setActiveModal('ai-instruction')}
+                                onAiMention={(action) => {
+                                    if (action) {
+                                        useAppStore.getState().setRightPanelTab('assistant');
+                                        useAppStore.getState().setAiContext({ pendingAction: action as any });
+                                    } else {
+                                        setActiveModal('ai-instruction');
+                                    }
+                                }}
                                 onSave={handleSave}
                                 overrideContent={selectedEvent?.content}
                                 compareWith={parentEvent?.content}
@@ -341,8 +349,8 @@ export default function V2Page() {
                                 id="right-panel-resize-handle"
                             />
                             <Panel
-                                defaultSize="25"
-                                minSize="10"
+                                defaultSize="30"
+                                minSize="20"
                                 maxSize="90"
                                 collapsible
                                 className="bg-slate-50 relative"
@@ -484,6 +492,26 @@ export default function V2Page() {
                 isOpen={activeModal === 'settings'}
                 onClose={() => setActiveModal(null)}
             />
+
+            {/* Floating UI Elements */}
+            {useAppStore.getState().aiSelectionTooltip.isVisible && (
+                <AISelectionTooltip
+                    x={useAppStore.getState().aiSelectionTooltip.x}
+                    y={useAppStore.getState().aiSelectionTooltip.y}
+                    onAction={(action, options) => {
+                        // Switch to assistant tab
+                        useAppStore.getState().setRightPanelTab('assistant');
+                        // Set pending action to trigger AIChatPane logic
+                        useAppStore.getState().setAiContext({
+                            pendingAction: action as any,
+                            pendingOptions: options
+                        });
+                        // Hide tooltip
+                        useAppStore.getState().setAiSelectionTooltip({ isVisible: false });
+                    }}
+                    onClose={() => useAppStore.getState().setAiSelectionTooltip({ isVisible: false })}
+                />
+            )}
         </div>
     );
 }

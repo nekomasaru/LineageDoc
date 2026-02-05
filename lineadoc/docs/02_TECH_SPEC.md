@@ -18,6 +18,11 @@
 - **Primary Color**: Teal (`teal-600`)
 - **Logo**: SVG-based Vector Logo ("LD" monogram).
 - **Favicon**: Dynamically generated via `next/og` (`src/app/icon.tsx`) to match the logo perfectly.
+- **Naming & Pronunciation**:
+  - **公式表記**: LineaDoc（発音: `/ˈlɪn.i.ə dɑk/`）
+  - **カタカナ表記**: リニアドック
+  - **発音ガイド**: "LIN-ee-uh DOK" (Like "linear" + "dock")
+  - **ブランドガイドライン**: 「LineaDoc is pronounced as 'LIN-ee-uh DOK', rhyming with 'linear clock'.」
 
 ### 2. Internationalization (i18n)
 - **Strategy**: React Context (`LanguageContext`).
@@ -203,7 +208,7 @@ Bi-directional scroll synchronization ensures the editor and preview pane stay a
 
 ### 1. Inbound Pipeline
 - **docx**: `mammoth.js` for semantic HTML extraction. 見出し(#)・段落・リスト構造を抽出。
-- **PDF**: Vertex AI (Gemini 1.5 Pro) for visual structure and layout analysis (Planned).
+- **PDF**: Vertex AI (Gemini 2.5 Flash) for visual structure and layout analysis (Planned).
 - **Merge**: "External Sync" flow where re-imported docs appear as AI-suggested branches (Planned).
 
 ### 2. Outbound Pipeline

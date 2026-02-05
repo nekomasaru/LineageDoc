@@ -42,7 +42,7 @@ interface SplitEditorLayoutProps {
     /** エディタの強制再マウント用キー (履歴IDなどを渡す) */
     editorKey?: string;
     /** AIメンショントリガー */
-    onAiMention?: () => void;
+    onAiMention?: (action?: string) => void;
     /** 比較対象のラベル (例: "Comparing with v2") */
     compareLabel?: string;
     /** ブランチ作成モードフラグ */
