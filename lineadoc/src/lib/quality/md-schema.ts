@@ -71,10 +71,33 @@ export function validateSchema(content: string, schemaDSL?: string): ValidationR
 
                 if (levelMatch) currentLevel = parseInt(levelMatch[1]);
                 if (textMatch && currentLevel !== null) {
-                    const targetText = textMatch[1];
-                    const headingRegex = new RegExp(`^#{${currentLevel}}\\s+${targetText}`, 'm');
+                    let targetText = textMatch[1].trim();
+                    let isRegex = false;
+                    let pattern = targetText;
 
-                    if (!headingRegex.test(body)) {
+                    if (targetText.startsWith('/') && targetText.endsWith('/') && targetText.length > 2) {
+                        isRegex = true;
+                        pattern = targetText.slice(1, -1);
+                    }
+
+                    const bodyLines = body.split('\n');
+                    const headingPrefix = '#'.repeat(currentLevel) + ' ';
+
+                    const exists = bodyLines.some(line => {
+                        if (!line.startsWith(headingPrefix)) return false;
+                        const actualText = line.slice(headingPrefix.length).trim();
+
+                        if (isRegex) {
+                            try {
+                                return new RegExp(pattern).test(actualText);
+                            } catch (e) {
+                                return false;
+                            }
+                        }
+                        return actualText === targetText;
+                    });
+
+                    if (!exists) {
                         issues.push({
                             line: 1,
                             message: `構造規定違反: 見出し「${'#'.repeat(currentLevel)} ${targetText}」が見つかりません`,

@@ -276,6 +276,7 @@ export function SplitEditorLayout({
                                 key={editorKey}
                                 handleRef={blockNoteRef}
                                 className="h-full"
+                                markdown={effectiveContent}
                                 overrideContent={isReadOnly ? effectiveContent : undefined}
                                 onChange={handleEditorChange}
                                 onAiMention={onAiMention}

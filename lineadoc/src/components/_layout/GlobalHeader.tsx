@@ -278,6 +278,7 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
                 <button
                     className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 rounded-md transition-colors"
                     title="設定"
+                    onClick={() => setActiveModal('settings')}
                 >
                     <Settings size={18} />
                 </button>

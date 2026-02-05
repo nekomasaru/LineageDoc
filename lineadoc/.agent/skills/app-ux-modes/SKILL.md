@@ -119,15 +119,22 @@ interface AppState {
 - `MainArea`: `SplitEditorLayout` (Write) または `ProofView` (Proof)
 - `RightPanel`: `LineaPanel` (History), `FrontmatterForm` (Attributes)
 
-# ショートカットキー
+# 設定とカスタマイズ: `settingsStore.ts`
 
-| キー | アクション |
-|------|----------|
-| `Alt + 1` | Hub (Dashboard) へ戻る |
-| `Alt + 2` | Write モード (Editor) |
-| `Alt + 3` | Proof モード (Preview) |
-| `Alt + H` | Historyパネル開閉 |
-| `Alt + I` | Attributesパネル開閉 |
+LineaDocでは、ユーザーの作業効率を最大化するため、永続化された設定（LocalStorage）と動的なホットキー管理を採用する。
+
+- **カスタマイズ性**: `SettingsModal` を通じて、各アクションのキー組み合わせを変更可能。
+- **UIフィードバック**: ショートカット実行時は、UI要素に反映される。
+
+# ショートカットキー (デフォルト)
+
+| アクション | デフォルトキー | 目的 |
+|----------|--------------|------|
+| **エディタ切替** | `Ctrl + E` | リッチ編集 (BlockNote) とソースコード (Monaco) のトグル |
+| **ワークモード切替** | `Ctrl + M` | Write (執筆) と Proof (出力プレビュー) のトグル |
+
+> [!NOTE]
+> ホットキーは `useHotkeys` フックによってグローバルに解決される。入力中（input, textarea, [contenteditable]）は競合を防ぐため、システムショートカットを除き動作しないよう設計されている。
 
 # 禁止事項
 

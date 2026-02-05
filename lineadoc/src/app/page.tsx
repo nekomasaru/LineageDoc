@@ -20,6 +20,9 @@ import { BranchCommentModal } from '@/components/_shared/BranchCommentModal';
 import { ConfirmModal } from '@/components/_shared/ConfirmModal';
 import { CreateDocumentModal } from '@/components/_features/document/CreateDocumentModal';
 import { DocTemplate } from '@/lib/templates';
+import { LegalModal } from '@/components/_features/legal/LegalModal';
+import { SettingsModal } from '@/components/_features/settings/SettingsModal';
+import { useHotkeys } from '@/hooks/useHotkeys';
 
 export default function V2Page() {
     const {
@@ -63,6 +66,9 @@ export default function V2Page() {
     const [clearHistoryConfirm, setClearHistoryConfirm] = useState(false);
 
     const { setMarkdown } = useEditorStore();
+
+    // ホットキーの初期化
+    useHotkeys();
 
     // Reset selection and LOAD latest content when document changes
     useEffect(() => {
@@ -435,6 +441,14 @@ export default function V2Page() {
                 message="このドキュメントのすべての履歴を消去しますか？\n消去後は現在の内容が「v1」として新しく保存されます。この操作は取り消せません。"
                 confirmText="消去する"
                 variant="danger"
+            />
+            <LegalModal
+                isOpen={activeModal === 'legal'}
+                onClose={() => setActiveModal(null)}
+            />
+            <SettingsModal
+                isOpen={activeModal === 'settings'}
+                onClose={() => setActiveModal(null)}
             />
         </div>
     );

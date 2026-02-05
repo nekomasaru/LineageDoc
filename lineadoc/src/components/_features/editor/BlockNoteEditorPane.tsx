@@ -38,6 +38,8 @@ interface BlockNoteEditorPaneProps {
     handleRef?: React.Ref<BlockNoteEditorHandle>;
     /** AIメンショントリガー */
     onAiMention?: () => void;
+    /** 明示的に渡すMarkdown（ストアのmarkdownを直接参照するのをやめ、このpropを優先する） */
+    markdown?: string;
 }
 
 // ローディング用コンポーネント
@@ -55,11 +57,15 @@ function BlockNoteLoading() {
 /**
  * 内部エディタコンポーネント
  */
-function BlockNoteEditorInner({ className = '', overrideContent, onChange, handleRef, onAiMention }: BlockNoteEditorPaneProps) {
-    const { markdown, mode, setMarkdown } = useEditorStore();
+function BlockNoteEditorInner({ className = '', overrideContent, onChange, handleRef, onAiMention, markdown: propsMarkdown }: BlockNoteEditorPaneProps) {
+    const { markdown: storeMarkdown, mode, setMarkdown } = useEditorStore();
 
     // エディタインスタンスを作成
     const editor = useCreateBlockNote();
+
+    // 優先順位: 1. overrideContent (履歴閲覧) 2. propsMarkdown (明示的渡し) 3. storeMarkdown (全量)
+    const markdownValue = overrideContent !== undefined ? overrideContent : (propsMarkdown !== undefined ? propsMarkdown : storeMarkdown);
+    const isReadOnly = overrideContent !== undefined;
 
     // 初期化フラグ
     const isInitializedRef = useRef(false);
@@ -70,11 +76,7 @@ function BlockNoteEditorInner({ className = '', overrideContent, onChange, handl
     // 同期中ステート
     const [isSyncing, setIsSyncing] = useState(false);
     // 最後のMarkdown値
-    const lastMarkdownRef = useRef(markdown);
-
-    // overrideContentがある合はそれを使用、なければストアのmarkdown
-    const fullMarkdown = overrideContent !== undefined ? overrideContent : markdown;
-    const isReadOnly = overrideContent !== undefined;
+    const lastMarkdownRef = useRef(markdownValue);
 
     // ハンドル機能の提供
     useImperativeHandle(handleRef, () => ({
@@ -128,7 +130,7 @@ function BlockNoteEditorInner({ className = '', overrideContent, onChange, handl
                     const blockElem = (
                         document.querySelector(`[data-id="${targetBlock.id}"]`) ||
                         document.querySelector(`[data-block-id="${targetBlock.id}"]`) ||
-                        document.querySelector(`#${targetBlock.id}`)
+                        document.querySelector(`[id="${targetBlock.id}"]`)
                     ) as HTMLElement;
 
                     if (blockElem) {
@@ -179,7 +181,7 @@ function BlockNoteEditorInner({ className = '', overrideContent, onChange, handl
 
         const syncContent = async () => {
             if (isInternalUpdateRef.current) return;
-            if (markdown === lastMarkdownRef.current && isInitializedRef.current) return;
+            if (markdownValue === lastMarkdownRef.current && isInitializedRef.current) return;
 
             debouncedUpdate.cancel();
             isRemoteUpdateRef.current = true;
@@ -187,10 +189,10 @@ function BlockNoteEditorInner({ className = '', overrideContent, onChange, handl
 
             try {
                 const { markdownToBlocks } = await import('@/lib/editor/markdownToBlocks');
-                const blocks = await markdownToBlocks(markdown, editor);
+                const blocks = await markdownToBlocks(markdownValue, editor);
                 editor.replaceBlocks(editor.document, blocks);
                 isInitializedRef.current = true;
-                lastMarkdownRef.current = markdown;
+                lastMarkdownRef.current = markdownValue;
             } catch (error) {
                 console.error('[BlockNote] Failed to sync content:', error);
             } finally {
@@ -203,7 +205,7 @@ function BlockNoteEditorInner({ className = '', overrideContent, onChange, handl
 
         syncContent();
         return () => debouncedUpdate.cancel();
-    }, [editor, markdown, debouncedUpdate]);
+    }, [editor, markdownValue, debouncedUpdate]);
 
     // 変更検知
     const handleChange = useCallback(() => {

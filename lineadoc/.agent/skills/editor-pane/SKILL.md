@@ -30,6 +30,9 @@ meta:
     - **自動採番**: `# ` + Space で `markdown-utils` を呼び出し、見出し番号を挿入（タイトル行除外）。
     - **スクロール同期**: `revealLine(line, 0)` で画面上端に合わせる。
     - **レイアウト**: `glyphMargin: true` で差分領域確保。
+  - **フロントマターの保護**:
+    - `SplitEditorLayout` において、`gray-matter` を使用してドキュメントを「メタデータ（Attributes）」と「本文（Markdown）」に分離。
+    - エディタ側には原則として本文のみを渡し、保存時に結合するフローを採用することで、リッチエディタ（BlockNote）とのデータ整合性を確保。
 
 # 実行手順
 

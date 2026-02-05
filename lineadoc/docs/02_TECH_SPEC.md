@@ -7,7 +7,7 @@
 - **Styling**: Tailwind CSS 4
 - **Editor**: `@monaco-editor/react` ^4.7.0, `@blocknote/react` ^0.22.0
 - **UI Framework**: `@blocknote/mantine` (Rich Editor UI)
-- **Markdown**: `react-markdown` ^10.1.0, `remark-gfm` ^4.0.1, `gray-matter` (Frontmatter)
+- **Markdown**: `react-markdown` ^10.1.0, `remark-gfm` ^4.0.1, `gray-matter` (Frontmatter), `mammoth` (docx import), `html-to-docx` (docx export)
 - **Layout**: `react-resizable-panels` ^2.0.0
 - **Graph**: `react-force-graph-2d` ^1.29.0
 - **Icons**: `lucide-react`
@@ -47,6 +47,10 @@
           ExportModal.tsx    # Format selection for export
         /preview
           PreviewPane.tsx    # Markdown preview with A4 paper style
+        /legal
+          LegalModal.tsx     # License info modal (Integrated into Settings)
+        /settings
+          SettingsModal.tsx  # Application preferences & Hotkey config
         /lineage
           LineagePanel.tsx   # History visualization (SVG Graph + List)
     /stores
@@ -55,9 +59,12 @@
       projectStore.ts       # Team/Project hierarchy
       editorStore.ts        # Markdown & Mode state
       qualityStore.ts       # Governance check results
+      settingsStore.ts      # User preferences & Hotkeys (Persisted)
     /lib
       lineage-utils.ts       # Graph layout algorithms
       editor/editorSync.ts   # Sync logic between Rich and Code
+    /hooks
+      useHotkeys.ts          # Global hotkey listener
 ```
 
 ## Data Models
@@ -168,4 +175,22 @@ Bi-directional scroll synchronization ensures the editor and preview pane stay a
 - **Template System**: 業務別の公文書テンプレート管理。
 
 ### 6. External Components & Licensing
-- **shadcn/ui**: 導入時は MIT License を遵守し、ライセンス表記を維持すること。
+
+## 7. Office & PDF Interoperability (Planned Phase 1-4)
+
+### 1. Inbound Pipeline
+- **docx**: `mammoth.js` for semantic HTML extraction.
+- **PDF**: Vertex AI (Gemini 1.5 Pro) for visual structure and layout analysis.
+- **Merge**: "External Sync" flow where re-imported docs appear as AI-suggested branches.
+
+### 2. Outbound Pipeline
+- **Quick docx**: `html-to-docx` based on the A4 CSS template.
+- **Professional docx**: Server-side `Pandoc` using custom reference templates for official government formats.
+
+### 3. Visual Auditing
+- Multi-modal verification comparing the **Rendered PDF layout** against **Markdown source** to detect numbering errors or structural mismatches visually.
+
+### 4. Implementation Checkpoints (Go/No-Go)
+- **CP1 (After Phase 1)**: `mammoth.js` 抽出精度の評価。不十分な場合はAI解析を前倒しするか、インポート範囲を制限。
+- **CP2 (After Phase 2)**: Gemini解析のコスト・精度評価。実運用コストが許容不可の場合は、マージ支援をテキストベースに縮退。
+- **CP3 (After Phase 3)**: 視覚校正の誤検知率評価。ノイズが多い場合は「警告」表示のみに留め、自動修正は行わない。
