@@ -5,7 +5,7 @@ import { Panel, Group as PanelGroup } from 'react-resizable-panels';
 import { GlobalHeader } from '@/components/_layout/GlobalHeader';
 import { DashboardView } from '@/components/_features/dashboard/DashboardView';
 import { RightContextPanel } from '@/components/_layout/RightContextPanel';
-import { SplitEditorLayout } from '@/components/_features/editor/SplitEditorLayout';
+import { SplitEditorLayout, SplitEditorLayoutHandle } from '@/components/_features/editor/SplitEditorLayout';
 import { ProofView } from '@/components/_features/proof/ProofView';
 import { ResizeHandle } from '@/components/_shared/ResizeHandle';
 import { LeftSidebar } from '@/components/_layout/LeftSidebar';
@@ -65,6 +65,12 @@ export default function V2Page() {
         event: null,
     });
     const [clearHistoryConfirm, setClearHistoryConfirm] = useState(false);
+
+    const splitEditorRef = useRef<SplitEditorLayoutHandle>(null);
+
+    const handleApplyAiSuggestion = useCallback((content: string) => {
+        splitEditorRef.current?.applyAiContent(content);
+    }, []);
 
     const { setMarkdown } = useEditorStore();
 
@@ -312,6 +318,7 @@ export default function V2Page() {
                     <Panel className="flex flex-col relative" id="main-editor-panel">
                         {workMode === 'write' ? (
                             <SplitEditorLayout
+                                ref={splitEditorRef}
                                 onAiMention={() => setActiveModal('ai-instruction')}
                                 onSave={handleSave}
                                 overrideContent={selectedEvent?.content}
@@ -351,6 +358,7 @@ export default function V2Page() {
                                     onEditComment={handleEditComment}
                                     onMakeLatest={handleMakeLatest}
                                     onClearHistory={handleClearHistoryRequest}
+                                    onApplyContent={handleApplyAiSuggestion}
                                 />
                             </Panel>
                         </>

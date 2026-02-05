@@ -38,7 +38,12 @@
    - **データ整合性ガード**: ドキュメント切り替え時のレースコンディション解消 (`effectivelyLoaded` 判定)。
    - **タイポグラフィ強化**: プレビュー画面での見出し（H1-H4）の視覚的階層化。
 
-7. **Supabase Integration** [TODO]
+7. **AI Chat Assistant** [DONE]
+   - **Selection Sync**: Monaco/BlockNoteでの選択範囲をリアルタイムにAIが把握。
+   - **Interactive Chat**: プレミアムなグラデーションデザインとオービットアイコンによる対話型UI。
+   - **Direct Reflection**: AIの提案をワンクリックでエディタの選択範囲へ書き戻す「適用」機能。
+
+8. **Supabase Integration** [TODO]
    - データ保存・管理・マルチデバイス同期。
 
 ## UI Design Guidelines

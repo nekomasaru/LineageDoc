@@ -6,6 +6,7 @@ import type * as Monaco from 'monaco-editor';
 import { computeDiff } from '@/lib/diff-utils';
 import { getAutoNumbering } from '@/lib/markdown-utils';
 import { QualityIssue } from '@/stores/qualityStore';
+import { useAppStore } from '@/stores/appStore';
 
 interface MonacoWrapperProps {
   value: string;
@@ -23,8 +24,9 @@ interface MonacoWrapperProps {
 }
 
 export interface MonacoWrapperHandle {
-  scrollToLine: (line: number) => void;
-  moveCursorTo: (line: number, column?: number) => void;
+  moveCursorTo: (line: number) => void;
+  getEditor: () => Monaco.editor.IStandaloneCodeEditor | null;
+  replaceSelection: (text: string) => void;
   clearDecorations: () => void;
   setValue: (value: string) => void;
   hasFocus: () => boolean;
@@ -89,7 +91,28 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
       editorRef.current?.focus();
     }, []);
 
-    useImperativeHandle(ref, () => ({ scrollToLine, moveCursorTo, clearDecorations, setValue: setEditorValue, hasFocus, focus }));
+    useImperativeHandle(ref, () => ({
+      scrollToLine,
+      moveCursorTo,
+      clearDecorations,
+      setValue: setEditorValue,
+      hasFocus,
+      focus,
+      getEditor: () => editorRef.current,
+      replaceSelection: (text: string) => {
+        if (editorRef.current) {
+          const selection = editorRef.current.getSelection();
+          if (selection) {
+            editorRef.current.executeEdits('ai-assistant', [{
+              range: selection,
+              text: text,
+              forceMoveMarkers: true
+            }]);
+            editorRef.current.pushUndoStop();
+          }
+        }
+      }
+    }));
 
     useEffect(() => {
       const editor = editorRef.current;
@@ -351,6 +374,26 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
             }, 100); // 100ms debounce for highlight sync
           }
         }
+      });
+
+      // Selection Sync to AI Assistant
+      let selectionTimeout: NodeJS.Timeout | null = null;
+      editor.onDidChangeCursorSelection((e) => {
+        if (selectionTimeout) clearTimeout(selectionTimeout);
+        selectionTimeout = setTimeout(() => {
+          const selection = editor.getSelection();
+          const model = editor.getModel();
+          if (selection && model) {
+            const selectedText = model.getValueInRange(selection);
+            if (selectedText.trim()) {
+              useAppStore.getState().setAiContext({
+                selectedText,
+                source: 'monaco',
+                range: selection
+              });
+            }
+          }
+        }, 300);
       });
 
       editor.onDidChangeModelContent((e) => {

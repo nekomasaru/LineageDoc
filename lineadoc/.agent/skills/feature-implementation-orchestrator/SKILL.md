@@ -44,5 +44,7 @@ meta:
 計画書には、その機能が **どのレイヤーの何を解決するか (Why)** を明記すること。
 
 ## デザイン基準
-- **Color**: Teal Blue (#0891B2), Cyan-based gradients
+- **Color**: 
+  - Base: Teal Blue (#0891B2), Cyan-based gradients
+  - AI Features: Purple-Cyan gradients (Teal-Purple transition)
 - **Philosophy**: 厳格なガバナンス (RLS等) と、温かいUX (おもてなし) の両立

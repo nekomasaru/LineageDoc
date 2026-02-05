@@ -5,6 +5,7 @@ import { QualityPanel } from '@/components/_layout/panels/QualityPanel';
 import { useLinea } from '@/hooks/useLinea';
 import { Loader2 } from 'lucide-react';
 import { useQualityStore } from '@/stores/qualityStore';
+import { AIChatPane } from '@/components/_features/ai/AIChatPane';
 
 interface RightContextPanelProps {
     linea?: ReturnType<typeof useLinea>;
@@ -16,6 +17,7 @@ interface RightContextPanelProps {
     onEditComment?: (event: any) => void;
     onMakeLatest?: (event: any) => void;
     onClearHistory?: () => void;
+    onApplyContent?: (content: string) => void;
 }
 
 export function RightContextPanel({
@@ -27,7 +29,8 @@ export function RightContextPanel({
     onCancelBranch,
     onEditComment,
     onMakeLatest,
-    onClearHistory
+    onClearHistory,
+    onApplyContent,
 }: RightContextPanelProps) {
     const { rightPanelTab, currentDocumentId } = useAppStore();
 
@@ -97,6 +100,13 @@ export function RightContextPanel({
                 <div className="p-4 text-slate-500 text-sm">
                     Graph View Coming Soon
                 </div>
+            )}
+
+            {rightPanelTab === 'assistant' && (
+                <AIChatPane
+                    currentContent={linea?.events?.find((e: any) => e.isLatest)?.content || ''}
+                    onApplyContent={onApplyContent}
+                />
             )}
         </div>
     );

@@ -49,6 +49,12 @@ interface SplitEditorLayoutProps {
     isBranching?: boolean;
     /** 選択中の履歴が最新かどうか */
     isLatestHistory?: boolean;
+    /** AI提案の反映 */
+    onApplyAiContent?: (content: string) => void;
+}
+
+export interface SplitEditorLayoutHandle {
+    applyAiContent: (content: string) => void;
 }
 
 /**
@@ -56,7 +62,9 @@ interface SplitEditorLayoutProps {
  */
 type MobileView = 'editor' | 'preview';
 
-export function SplitEditorLayout({
+import { forwardRef, useImperativeHandle } from 'react';
+
+export const SplitEditorLayout = forwardRef<SplitEditorLayoutHandle, SplitEditorLayoutProps>(({
     className = '',
     compareWith,
     savedMarkdown,
@@ -67,8 +75,20 @@ export function SplitEditorLayout({
     compareLabel,
     isBranching = false,
     isLatestHistory = true,
-}: SplitEditorLayoutProps) {
+    onApplyAiContent,
+}, ref) => {
     const { markdown, mode, setMarkdown } = useEditorStore();
+    const { aiContext } = useAppStore();
+
+    useImperativeHandle(ref, () => ({
+        applyAiContent: (content: string) => {
+            if (mode === 'code' && monacoRef.current) {
+                monacoRef.current.replaceSelection(content);
+            } else if (mode === 'rich' && blockNoteRef.current) {
+                blockNoteRef.current.replaceSelection(content);
+            }
+        }
+    }));
     const [mobileView, setMobileView] = useState<MobileView>('editor');
     const [targetLine, setTargetLine] = useState<number | undefined>(undefined);
     const monacoRef = useRef<MonacoWrapperHandle>(null);
@@ -357,4 +377,4 @@ export function SplitEditorLayout({
             </div>
         </div>
     );
-}
+});

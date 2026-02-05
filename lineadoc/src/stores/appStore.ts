@@ -27,7 +27,13 @@ export type WorkMode = 'write' | 'proof';
 /**
  * 右パネル (Context Panel) のタブ
  */
-export type RightPanelTab = 'history' | 'attributes' | 'graph' | 'quality' | null;
+export type RightPanelTab = 'history' | 'attributes' | 'graph' | 'quality' | 'assistant' | null;
+
+export interface AIContext {
+    selectedText: string;
+    source: 'monaco' | 'blocknote' | null;
+    range?: any; // Selection range info
+}
 
 interface AppState {
     // ===== ビューモード (Main Layout) =====
@@ -42,6 +48,11 @@ interface AppState {
     rightPanelTab: RightPanelTab;
     setRightPanelTab: (tab: RightPanelTab) => void;
     toggleRightPanel: (tab: RightPanelTab) => void;
+
+    // ===== AI アシスタントコンテキスト =====
+    aiContext: AIContext;
+    setAiContext: (context: Partial<AIContext>) => void;
+    clearAiContext: () => void;
 
     // ===== 現在のドキュメント (Spoke Context) =====
     currentDocumentId: string | null;
@@ -70,6 +81,15 @@ export const useAppStore = create<AppState>()(
             toggleRightPanel: (tab) => set((state) => ({
                 rightPanelTab: state.rightPanelTab === tab ? null : tab
             })),
+
+            // AI Context
+            aiContext: { selectedText: '', source: null },
+            setAiContext: (context) => set((state) => ({
+                aiContext: { ...state.aiContext, ...context }
+            })),
+            clearAiContext: () => set({
+                aiContext: { selectedText: '', source: null }
+            }),
 
             // Document Context
             currentDocumentId: null,

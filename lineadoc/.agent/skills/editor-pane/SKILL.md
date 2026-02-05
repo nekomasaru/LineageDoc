@@ -30,6 +30,9 @@ meta:
     - **自動採番**: `# ` + Space で `markdown-utils` を呼び出し、見出し番号を挿入（タイトル行除外）。
     - **スクロール同期**: `revealLine(line, 0)` で画面上端に合わせる。
     - **レイアウト**: `glyphMargin: true` で差分領域確保。
+  - **AI 集約・同期**:
+    - **選択内容の同期**: `onDidChangeCursorSelection` (Monaco) や `onSelectionChange` (BlockNote) を監視し、`appStore.aiContext` に選択テキストを同期。
+    - **反映アクション**: `replaceSelection(text)` を実装。AIの提案を現在の選択範囲に即座に上書き反映する仕組みを提供。
   - **フロントマターの保護**:
     - `SplitEditorLayout` において、`gray-matter` を使用してドキュメントを「メタデータ（Attributes）」と「本文（Markdown）」に分離。
     - エディタ側には原則として本文のみを渡し、保存時に結合するフローを採用することで、リッチエディタ（BlockNote）とのデータ整合性を確保。

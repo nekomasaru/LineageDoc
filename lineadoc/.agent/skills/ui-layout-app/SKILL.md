@@ -51,7 +51,7 @@ meta:
 │                                      │i│   - Attributes     │
 │                                      │z│   - Graph          │
 │                                      │e│   - Governance     │
-│                                      │ │                    │
+│                                      │ │   - Assistant (✨) │
 └──────────────────────────────────────┴─┴────────────────────┘
 ```
 
@@ -102,6 +102,7 @@ meta:
 | **右パネル** | `bg-slate-50 border-l border-slate-200` |
 | **パンくず** | `text-slate-500 hover:text-cyan-700` |
 | **タイポグラフィ** | `.prose` 内で A4 用の H1-H4 サイズを `!important` で定義し、階層構造を維持する。 |
+| **AIデザイン** | `bg-gradient-to-r from-cyan-600 to-purple-600` (Teal-Purple) をヘッダーやボタンに使用。リッチなオービットアニメーションアイコンを採用する。 |
 
 # 禁止事項
 

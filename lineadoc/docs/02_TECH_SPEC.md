@@ -39,6 +39,7 @@
       /_features
         /ai
           AiInstructionModal.tsx # AI command trigger modal
+          AIChatPane.tsx         # [NEW] AI Chat integration UI
         /editor
           MonacoWrapper.tsx  # Editor component with custom scroll handling
           BlockNoteEditorPane.tsx # WYSIWYG editor
@@ -53,6 +54,8 @@
           SettingsModal.tsx  # Application preferences & Hotkey config
         /lineage
           LineagePanel.tsx   # History visualization (SVG Graph + List)
+      /_ui
+        AIAssistantIcon.tsx # [NEW] Rich animated AI icon
     /stores
       appStore.ts           # Global UI state (Hub/Spoke/Modals)
       documentStore.ts      # Metadata-driven document management
@@ -164,7 +167,20 @@ Bi-directional scroll synchronization ensures the editor and preview pane stay a
 - **Textlint Engine**: Integrated via local API for Japanese prose quality.
 - **Typography**: `globals.css` により A4 プレビュー用の H1-H4 スタイルを定義し、公文書の階層構造を視覚化。
 
-### 6. Future AI & Governance Integration (Phase 4-5)
+### 6. AI Assistant & Selection Synchronization
+アシスタントパネル（AIChatPane）とエディタ間の高度な連携。
+
+- **Selection Logic**:
+  - **Monaco**: `onDidChangeCursorSelection` を監視し、選択テキストと範囲を取得。
+  - **BlockNote**: `onSelectionChange` (useEffect) を監視し、ブロック内のテキストを抽出。
+  - **Debounce**: エディタのパフォーマンス低下を防ぐため、1000msのデバウンス処理を介して `appStore.aiContext` を更新。
+- **Context Awareness**: 
+  - 右パネルには「どのエディタから（Source）」「どのテキストが（SelectedText）」選択されているかが表示される。
+- **Direct Reflection (Apply)**: 
+  - `AIChatPane` のメッセージにある「適用」ボタンにより実行。
+  - `SplitEditorLayout` を介して、各エディタの `replaceSelection` 命令を呼び出し、現在の選択範囲をAIの提案内容で書き換える。
+
+### 7. Future AI & Governance Integration (Phase 4-5)
 
 #### Quality & Governance (Hierarchical Management)
 - **Administrative Selection**: Unified sidebar for selecting **Team (Organization-wide)**, **Project-specific**, or **Document Template (e.g., Minutes, Knowledge)** as governance targets.

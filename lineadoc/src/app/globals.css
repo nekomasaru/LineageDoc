@@ -180,3 +180,73 @@ body {
   width: 5px !important;
   margin-left: 2px;
 }
+
+/* AI Assistant Animations */
+@keyframes assistant-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes assistant-orbit-1 {
+  0% {
+    stroke-dashoffset: 0;
+    transform: rotate(45deg);
+  }
+
+  100% {
+    stroke-dashoffset: 300;
+    transform: rotate(405deg);
+  }
+}
+
+@keyframes assistant-orbit-2 {
+  0% {
+    stroke-dashoffset: 0;
+    transform: rotate(-45deg);
+  }
+
+  100% {
+    stroke-dashoffset: -300;
+    transform: rotate(-405deg);
+  }
+}
+
+@keyframes assistant-orbit-3 {
+  0% {
+    stroke-dashoffset: 0;
+    transform: rotate(90deg);
+  }
+
+  100% {
+    stroke-dashoffset: 300;
+    transform: rotate(450deg);
+  }
+}
+
+.animate-assistant-pulse {
+  animation: assistant-pulse 3s ease-in-out infinite;
+}
+
+.animate-assistant-orbit-1 {
+  stroke-dasharray: 100 200;
+  animation: assistant-orbit-1 10s linear infinite;
+}
+
+.animate-assistant-orbit-2 {
+  stroke-dasharray: 100 200;
+  animation: assistant-orbit-2 12s linear infinite;
+}
+
+.animate-assistant-orbit-3 {
+  stroke-dasharray: 100 200;
+  animation: assistant-orbit-3 15s linear infinite;
+}

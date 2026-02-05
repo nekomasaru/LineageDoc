@@ -14,6 +14,7 @@ import { useEffect, useRef, useCallback, useState, useMemo, useImperativeHandle 
 import dynamic from 'next/dynamic';
 import { useDebouncedCallback } from 'use-debounce';
 import { useEditorStore } from '@/stores/editorStore';
+import { useAppStore } from '@/stores/appStore';
 import {
     registerBlockNoteEditor,
     unregisterBlockNoteEditor
@@ -26,6 +27,7 @@ import { BlockNoteView } from '@blocknote/mantine';
 
 export interface BlockNoteEditorHandle {
     focusBlockByContent: (content: string, occurrenceIndex?: number) => void;
+    replaceSelection: (text: string) => void;
 }
 
 interface BlockNoteEditorPaneProps {
@@ -140,6 +142,19 @@ function BlockNoteEditorInner({ className = '', overrideContent, onChange, handl
             } else {
                 console.warn('[BlockNote] Could not find block data for content:', targetContent);
             }
+        },
+        replaceSelection: (text: string) => {
+            if (editor) {
+                const selection = editor.getSelection();
+                if (selection && selection.blocks.length > 0) {
+                    editor.updateBlock(selection.blocks[0], {
+                        content: text
+                    });
+                    if (selection.blocks.length > 1) {
+                        editor.removeBlocks(selection.blocks.slice(1));
+                    }
+                }
+            }
         }
     }), [editor]);
 
@@ -155,6 +170,37 @@ function BlockNoteEditorInner({ className = '', overrideContent, onChange, handl
         if (editor) registerBlockNoteEditor(editor);
         return () => unregisterBlockNoteEditor();
     }, [editor]);
+
+    // AI Assistant Selection Sync
+    useEffect(() => {
+        if (!editor || isReadOnly) return;
+
+        const handleSelectionChange = () => {
+            const selection = editor.getSelection();
+            if (selection && selection.blocks.length > 0) {
+                // Get selected text from blocks
+                const selectedText = selection.blocks
+                    .map((block: any) => {
+                        if (Array.isArray(block.content)) {
+                            return block.content.map((c: any) => c.text).join('');
+                        }
+                        return typeof block.content === 'string' ? block.content : '';
+                    })
+                    .join('\n');
+
+                if (selectedText.trim()) {
+                    useAppStore.getState().setAiContext({
+                        selectedText: selectedText.trim(),
+                        source: 'blocknote',
+                        range: selection
+                    });
+                }
+            }
+        };
+
+        const unsubscribe = editor.onSelectionChange(handleSelectionChange);
+        return () => unsubscribe();
+    }, [editor, isReadOnly]);
 
     // Markdownへの変換（デバウンス）
     const debouncedUpdate = useDebouncedCallback(

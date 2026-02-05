@@ -49,7 +49,7 @@
         - **Export**: <Upload /> アイコン。MD/TXT/JSON形式での書き出し。
         - **Import**: <Download /> アイコン。MD/TXTファイルの取り込み。
     - **Editor Mode Toggle**: `Rich (WYSIWYG)` と `Code (Markdown)` の切り替え。
-    - **Context Toggles**: `History`, `Attributes`, `Graph`, `Quality (Governance)` などの右パネル開閉ボタン。
+    - **Context Toggles**: `History`, `Attributes`, `Graph`, `Quality (Governance)`, `Assistant` (✨アイコン) の各右パネル開閉ボタン。
     - **Settings**: アプリケーション設定へのアクセス。
     - **Save Status**: 保存状態のインジケーター。
 
@@ -77,6 +77,11 @@
 - **Quality Tab (Governance)**:
     - MDSCHEMA/Textlintによる校正結果の表示。
     - 公文書ガイドラインへの準拠チェック。
+- **Assistant Tab (✨)**:
+    - **Selection Context**: 現在選択中のテキストプレビューを表示。
+    - **Quick Actions**: ✨要約、💎磨き上げ、🖋️生成 などのプリセットボタン。
+    - **Chat UI**: 吹き出し形式の対話画面。
+    - **Direct Apply**: AIの提案テキストをエディタへ直接反映するボタン。
 - **Graph Tab**:
     - 関連ドキュメントのネットワークグラフ表示。
 

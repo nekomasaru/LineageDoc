@@ -6,7 +6,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import { syncBeforeModeChange } from '@/lib/editor/editorSync';
-import { GitBranch, Info, Settings, ChevronRight, Home, LayoutGrid, ShieldCheck, PenTool, Printer, FileText, FileCode2, Save, Download, Upload } from 'lucide-react';
+import { GitBranch, Info, Settings, ChevronRight, Home, LayoutGrid, ShieldCheck, PenTool, Printer, FileText, FileCode2, Save, Download, Upload, Sparkles } from 'lucide-react';
 import { useCallback, useRef } from 'react';
 import { useLinea } from '@/hooks/useLinea';
 interface GlobalHeaderProps {
@@ -287,6 +287,18 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
                             title="品質・ガバナンス (Governance Check)"
                         >
                             <ShieldCheck size={18} />
+                        </button>
+
+                        {/* AI Assistant Toggle */}
+                        <button
+                            onClick={() => toggleRightPanel('assistant')}
+                            className={`p-2 rounded-md transition-all ${rightPanelTab === 'assistant'
+                                ? 'bg-purple-100 text-purple-700 shadow-sm'
+                                : 'text-slate-400 hover:bg-purple-50 hover:text-purple-600'
+                                }`}
+                            title="AI アシスタント (AI Chat)"
+                        >
+                            <Sparkles size={18} className={rightPanelTab === 'assistant' ? 'animate-pulse' : ''} />
                         </button>
 
                         <div className="h-6 w-px bg-slate-200 mx-2" />
