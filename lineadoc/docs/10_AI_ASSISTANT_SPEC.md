@@ -22,6 +22,7 @@ Vertex AI Premium (Gemini 2.5 Flash) を基盤とし、行政文書の品位保�
 - **Command Bar (Horizontal Scroll)**:
   - **推敲・磨き上げ**: 公用文、要約、校正、やさしい、構造化
   - **整理・分析・生成**: ToDo、要件、論理性、解説、短く、長く
+  - **履歴・統合操作**: AI指示（モーダル）、マイルストーン保存
 - **Structured Output**: Markdown テーブルや Mermaid ダイアグラムを積極的に活用し、視覚的な資料作成を支援。
 
 ### 3. Prompt Engineering (`promptTemplates.ts`)
@@ -71,10 +72,10 @@ AI とのチャットログは**永続化せず、セッション限定**とす�
 ### 5. Context Hierarchy & Weighted Priority (コンテキストの優先順位)
 AI が複数の情報源を扱う際、以下の「4層の階層構造」に基づいて判断の重みを管理する。
 
-1. **Layer 1: Governance Rules (絶対規程)**: ガバナンス設定（公用文ルール、禁止語彙）。**最優先の制約（Hard Constraint）**。
-2. **Layer 2: Project Identity (事実背景)**: プロジェクト内の他ドキュメントや関連資料。**事実の根拠（Factual Grounding）**。
-3. **Layer 3: User Intent (対話文脈)**: 現在のチャットでの具体的な指示。**挙動の調整（Instruction）**。
-4. **Layer 4: External Knowledge (外部補足)**: インターネット検索。Layer 1〜3 で解決できない「最新の数値」等のみを補う。**補助的知識（Supplementary）**。
+1.  **Layer 1: Governance Rules (絶対規程)**: ガバナンス設定（公用文ルール、禁止語彙）。**最優先の制約（Hard Constraint）**。
+2.  **Layer 2: Project Identity (事実背景)**: プロジェクト内の他ドキュメントや関連資料。**事実の根拠（Factual Grounding）**。
+3.  **Layer 3: User Intent (対話文脈)**: 現在のチャットでの具体的な指示。**挙動の調整（Instruction）**。
+4.  **Layer 4: External Knowledge (外部補足)**: インターネット検索。Layer 1〜3 で解決できない「最新の数値」等のみを補う。**補助的知識（Supplementary）**。
 
 ### 6. Search Grounding & Hallucination Guard (検索と信頼性)
 - **Dynamic Search**: 統計データや最新法改正などに対してのみ Google 検索（Grounding）を活用。
@@ -97,6 +98,8 @@ AI の動作原理、データの扱い、セキュリティ対策（日本リ�
 - **Reference File Sidebar**: 資料の保持・プレビュー・AIコンテキストへの注入。
 - **セキュリティバッジ**: 「国内リージョン・学習非利用」の常態表示。
 - **Contextual Chat**: 過去の対話履歴（セッションベース）をプロンプトに含め、文脈を維持した継続的な指示出しを可能にする。
+- **Semantic History Rail**: AI要約の自動生成とマイルストーン属性の管理。
+- **Unified AI Command Bar**: AI指示モーダルと保存通知（Toast）の統合。
 
 ### Phase 2: ガバナンスと実務高度化
 - **セーフティ・リンター (ガバナンス統合)**: 

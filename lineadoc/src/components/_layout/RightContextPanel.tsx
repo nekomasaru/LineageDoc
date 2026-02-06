@@ -15,9 +15,11 @@ interface RightContextPanelProps {
     onStartBranch?: (event: any) => void;
     onCancelBranch?: () => void;
     onEditComment?: (event: any) => void;
+    onToggleMilestone?: (event: any) => void;
     onMakeLatest?: (event: any) => void;
     onClearHistory?: () => void;
     onApplyContent?: (content: string) => void;
+    onSaveMilestone?: (summary: string) => void;
 }
 
 export function RightContextPanel({
@@ -28,9 +30,11 @@ export function RightContextPanel({
     onStartBranch,
     onCancelBranch,
     onEditComment,
+    onToggleMilestone,
     onMakeLatest,
     onClearHistory,
     onApplyContent,
+    onSaveMilestone,
 }: RightContextPanelProps) {
     const { rightPanelTab, currentDocumentId } = useAppStore();
 
@@ -41,14 +45,16 @@ export function RightContextPanel({
         addEvent,
         clearEvents,
         resetWithContent,
-        updateEventSummary
+        updateEventSummary,
+        updateEventMilestone,
     } = linea || {
         events: [],
         isLoaded: true,
         addEvent: () => ({}),
         clearEvents: () => { },
         resetWithContent: () => ({}),
-        updateEventSummary: () => { }
+        updateEventSummary: () => { },
+        updateEventMilestone: () => { }
     } as any;
 
     // If panel is closed or no tab selected, return null
@@ -80,6 +86,13 @@ export function RightContextPanel({
                         onStartBranch={(e) => onStartBranch?.(e)}
                         onCancelBranch={() => onCancelBranch?.()}
                         onEditComment={(e) => onEditComment?.(e)}
+                        onToggleMilestone={(e) => {
+                            if (onToggleMilestone) {
+                                onToggleMilestone(e);
+                            } else {
+                                updateEventMilestone(e.id, !e.isMilestone);
+                            }
+                        }}
                     />
                 ) : (
                     <div className="flex items-center justify-center h-full text-slate-400">
@@ -106,6 +119,7 @@ export function RightContextPanel({
                 <AIChatPane
                     currentContent={linea?.events?.find((e: any) => e.isLatest)?.content || ''}
                     onApplyContent={onApplyContent}
+                    onSaveMilestone={onSaveMilestone}
                 />
             )}
         </div>

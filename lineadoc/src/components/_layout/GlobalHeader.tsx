@@ -6,7 +6,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import { syncBeforeModeChange } from '@/lib/editor/editorSync';
-import { GitBranch, Info, Settings, ChevronRight, Home, LayoutGrid, ShieldCheck, PenTool, Printer, FileText, FileCode2, Save, Download, Upload, Sparkles } from 'lucide-react';
+import { GitBranch, Info, Settings, ChevronRight, Home, LayoutGrid, ShieldCheck, PenTool, Printer, FileText, FileCode2, Save, Download, Upload, Sparkles, CheckCircle } from 'lucide-react';
 import { useCallback, useRef } from 'react';
 import { useLinea } from '@/hooks/useLinea';
 interface GlobalHeaderProps {
@@ -24,7 +24,8 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
         rightPanelTab,
         toggleRightPanel,
         setActiveModal,
-        setCurrentDocument
+        setCurrentDocument,
+        showToast
     } = useAppStore();
 
     const { mode, setMode, markdown } = useEditorStore();
@@ -59,8 +60,10 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
             if (!latest || latest.content !== markdown) {
                 addEvent(markdown, 'user_edit', latest?.id || null, '手動保存 (Header)');
                 console.log('Saved to local storage & history updated (Header)');
+                showToast('履歴を保存しました', 'success');
             } else {
                 console.log('Saved (No content change, history skipped)');
+                showToast('保存しました', 'info');
             }
         }
     }, [currentDocumentId, markdown, updateDocument, addEvent, getLatestEvent, linea.isLoaded, linea.loadedId, onSave]);
@@ -254,16 +257,29 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
                         <div className="h-6 w-px bg-slate-200 mx-2" />
 
                         {/* History Toggle */}
-                        <button
-                            onClick={() => toggleRightPanel('history')}
-                            className={`p-2 rounded-md transition-colors ${rightPanelTab === 'history'
-                                ? 'bg-cyan-100 text-cyan-700'
-                                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-                                }`}
-                            title="履歴 (History)"
-                        >
-                            <GitBranch size={18} />
-                        </button>
+                        <div className="relative">
+                            <button
+                                onClick={() => toggleRightPanel('history')}
+                                className={`p-2 rounded-md transition-colors ${rightPanelTab === 'history'
+                                    ? 'bg-cyan-100 text-cyan-700'
+                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                                    }`}
+                                title="履歴 (History)"
+                            >
+                                <GitBranch size={18} />
+                            </button>
+
+                            {/* Simple Toast Popover */}
+                            {useAppStore.getState().toast.isVisible && useAppStore.getState().toast.type === 'success' && (
+                                <div className="absolute right-0 top-full mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="bg-emerald-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap flex items-center gap-2">
+                                        <CheckCircle size={14} />
+                                        {useAppStore.getState().toast.message}
+                                        <div className="absolute -top-1 right-3 w-2 h-2 bg-emerald-600 rotate-45" />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
                         {/* Attributes Toggle */}
                         <button

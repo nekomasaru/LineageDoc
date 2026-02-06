@@ -43,7 +43,30 @@ export function useLinea(documentId?: string | null) {
                 setEvents([]);
             }
         } else {
-            setEvents([]);
+            // Initial Seed for Demo
+            const seedEvents: LineaEvent[] = [{
+                id: 'seed-1',
+                parentId: null,
+                timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
+                type: 'save',
+                content: '# 初期起案\n\n文書を作成しました。',
+                summary: '初期作成',
+                version: 1,
+                isMilestone: true,
+                importance: 5,
+                aiSummary: 'プロジェクトのキックオフに基づく初期起案'
+            }, {
+                id: 'seed-2',
+                parentId: 'seed-1',
+                timestamp: new Date(Date.now() - 3600000 * 1).toISOString(),
+                type: 'user_edit',
+                content: '# 初期起案（修正済）\n\n構成を変更しました。',
+                summary: '構成の微調整',
+                version: 2,
+                isMilestone: false,
+                importance: 1,
+            }];
+            setEvents(seedEvents);
         }
 
         setIsLoaded(true);
@@ -69,7 +92,10 @@ export function useLinea(documentId?: string | null) {
         content: string,
         type: LineaEvent['type'] = 'user_edit',
         parentId: string | null = null,
-        summary?: string
+        summary: string = '',
+        isMilestone: boolean = false,
+        importance: number = 1,
+        aiSummary: string = ''
     ) => {
         if (!effectivelyLoaded) {
             console.warn('[Linea] addEvent called before load completed. Skipping.');
@@ -86,7 +112,10 @@ export function useLinea(documentId?: string | null) {
             type,
             content,
             summary,
+            aiSummary,
             version: nextVersion,
+            isMilestone,
+            importance,
         };
 
         setEvents((prev) => [...prev, newEvent]);
@@ -163,6 +192,17 @@ export function useLinea(documentId?: string | null) {
         ));
     }, []);
 
+    const updateEventMilestone = useCallback((eventId: string, isMilestone: boolean, importance: number = 3) => {
+        setEvents(prev => prev.map(e =>
+            e.id === eventId ? {
+                ...e,
+                isMilestone,
+                importance,
+                aiSummary: isMilestone ? (e.aiSummary || `AIが分析した構成変更: ${e.summary || '内容のブラッシュアップ'}`) : e.aiSummary
+            } : e
+        ));
+    }, []);
+
     return {
         events: effectivelyLoaded ? events : [],
         isLoaded: effectivelyLoaded,
@@ -178,5 +218,6 @@ export function useLinea(documentId?: string | null) {
         getEventByVersion,
         updateEventSummary,
         updateEventContent,
+        updateEventMilestone,
     };
 }

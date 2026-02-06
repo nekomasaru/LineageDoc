@@ -3,7 +3,7 @@
 import { useMemo, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { User, Bot, Save, Trash2, Copy, GitBranch, Edit2 } from 'lucide-react';
+import { User, Bot, Save, Trash2, Copy, GitBranch, Edit2, Star, CheckCircle } from 'lucide-react';
 import { LineaEvent } from '@/lib/types';
 import { calculateGraphLayout } from '@/lib/linea-utils';
 import { useLanguage } from '@/lib/LanguageContext';
@@ -18,7 +18,8 @@ interface LineaPanelProps {
     onMakeLatest: (event: LineaEvent) => void;
     onStartBranch: (event: LineaEvent) => void;
     onCancelBranch: () => void;
-    onEditComment: (event: LineaEvent) => void; // コメント編集コールバック
+    onEditComment: (event: LineaEvent) => void;
+    onToggleMilestone?: (event: LineaEvent) => void; // マイルストーン切り替え
 }
 
 const eventConfig: Record<string, any> = {
@@ -50,6 +51,13 @@ const eventConfig: Record<string, any> = {
         bgColor: 'bg-green-50',
         textColor: 'text-green-800',
     },
+    milestone: {
+        icon: Star,
+        labelKey: 'panel.milestone',
+        color: '#f59e0b', // amber-500
+        bgColor: 'bg-amber-50',
+        textColor: 'text-amber-800',
+    },
 };
 
 // Fallback for unknown event types to prevent crashes
@@ -57,10 +65,10 @@ const getEventConfig = (type: string) => {
     return eventConfig[type] || eventConfig.user_edit;
 };
 
-const ROW_HEIGHT = 64; // px
-const COL_WIDTH = 32; // px (24 -> 32に拡張して干渉を低減)
+const ROW_HEIGHT = 90; // 64 -> 90に拡張して余白を確保
+const COL_WIDTH = 40; // 32 -> 40に拡張
 const LEFT_MARGIN = 60; // px
-const CIRCLE_RADIUS = 10; // (5 -> 10に拡大して文字を入れやすくする)
+const CIRCLE_RADIUS = 12; // 10 -> 12に拡大
 
 export function LineaPanel({
     events,
@@ -73,6 +81,7 @@ export function LineaPanel({
     onStartBranch,
     onCancelBranch,
     onEditComment,
+    onToggleMilestone,
 }: LineaPanelProps) {
     const { t } = useLanguage();
     // グラフレイアウト計算
@@ -218,11 +227,25 @@ export function LineaPanel({
                                         <circle
                                             cx={cx}
                                             cy={cy}
-                                            r={CIRCLE_RADIUS}
-                                            fill={isSelected ? '#06b6d4' : '#fff'} // cyan-500
-                                            stroke={isSelected ? '#0891b2' : '#94a3b8'} // cyan-600
-                                            strokeWidth={isSelected ? 2 : 1}
+                                            r={node.event.isMilestone ? CIRCLE_RADIUS * 1.3 : CIRCLE_RADIUS}
+                                            fill={isSelected ? (node.event.isMilestone ? '#f59e0b' : '#06b6d4') : '#fff'}
+                                            stroke={node.event.isMilestone ? '#d97706' : (isSelected ? '#0891b2' : '#94a3b8')}
+                                            strokeWidth={node.event.isMilestone || isSelected ? 2 : 1}
+                                            className={!node.event.isMilestone && node.event.importance === 1 ? 'opacity-40' : ''}
                                         />
+                                        {/* Milestone Indicator (Static) */}
+                                        {node.event.isMilestone && (
+                                            <circle
+                                                cx={cx}
+                                                cy={cy}
+                                                r={CIRCLE_RADIUS * 1.5}
+                                                fill="none"
+                                                stroke="#f59e0b"
+                                                strokeWidth="1"
+                                                strokeDasharray="2 2"
+                                                className="opacity-60"
+                                            />
+                                        )}
                                         <text
                                             x={cx}
                                             y={cy}
@@ -246,16 +269,17 @@ export function LineaPanel({
                                 if (!node.event.summary) return null;
                                 const cx = LEFT_MARGIN + node.column * COL_WIDTH;
                                 const cy = node.yIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
-                                const displayText = node.event.summary.length > 12
-                                    ? node.event.summary.slice(0, 12) + '…'
-                                    : node.event.summary;
                                 return (
                                     <div
                                         key={`comment-${node.event.id}`}
-                                        className="absolute text-[8px] font-medium text-amber-500 cursor-pointer hover:text-amber-600 hover:underline whitespace-nowrap pointer-events-auto"
+                                        className="absolute text-[9px] font-bold text-amber-600/90 cursor-pointer hover:text-amber-700 hover:underline whitespace-nowrap pointer-events-auto bg-white/80 px-1.5 py-0.5 rounded-full shadow-sm border border-amber-200/50 backdrop-blur-[2px]"
                                         style={{
-                                            left: cx - CIRCLE_RADIUS,
-                                            top: cy + CIRCLE_RADIUS + 6,
+                                            left: cx,
+                                            top: cy + CIRCLE_RADIUS + 8,
+                                            transform: 'translateX(-50%)',
+                                            maxWidth: 120, // 固定最大幅
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis'
                                         }}
                                         title={node.event.summary}
                                         onClick={(e) => {
@@ -263,7 +287,7 @@ export function LineaPanel({
                                             onEditComment?.(node.event);
                                         }}
                                     >
-                                        {displayText}
+                                        {node.event.summary}
                                     </div>
                                 );
                             })}
@@ -302,12 +326,23 @@ export function LineaPanel({
                                                     <Icon size={12} />
                                                     {t(config.labelKey)}
                                                 </span>
+                                                {event.isMilestone && (
+                                                    <span className="text-[10px] bg-amber-100 text-amber-700 px-1 rounded flex items-center gap-0.5 font-bold">
+                                                        <Star size={10} fill="currentColor" />
+                                                        MILESTONE
+                                                    </span>
+                                                )}
                                                 {isLatest && (
                                                     <span className="ml-auto text-[10px] bg-cyan-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
                                                         {t('panel.latest')}
                                                     </span>
                                                 )}
                                             </div>
+                                            {event.aiSummary && (
+                                                <div className="text-[11px] text-slate-700 bg-white/50 border border-slate-200 p-2 rounded mb-1.5 font-medium leading-relaxed italic shadow-sm">
+                                                    {event.aiSummary.startsWith('✨') ? event.aiSummary : `✨ ${event.aiSummary}`}
+                                                </div>
+                                            )}
                                             <div className="text-[10px] text-slate-400 mb-0.5">
                                                 {/* Date formatting could be localized too but sticking to numeric for now */}
                                                 {format(new Date(event.timestamp), 'yyyy/MM/dd HH:mm:ss')}
@@ -375,6 +410,20 @@ export function LineaPanel({
                                 <span>{t('panel.restoreAsLatest', { version: selectedEvent.version ?? '?' })}</span>
                             </button>
                         )}
+                        {/* マイルストーン切り替え */}
+                        {onToggleMilestone && (
+                            <button
+                                onClick={() => onToggleMilestone(selectedEvent)}
+                                className={`w-full flex items-center justify-center gap-2 py-2 rounded text-sm font-medium transition-colors shadow-sm
+                                    ${selectedEvent.isMilestone
+                                        ? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                        : 'bg-amber-500 text-white hover:bg-amber-600'}
+                                `}
+                            >
+                                <Star size={14} fill={selectedEvent.isMilestone ? 'currentColor' : 'none'} />
+                                <span>{selectedEvent.isMilestone ? 'マイルストーン解除' : 'マイルストーンとして記録'}</span>
+                            </button>
+                        )}
                     </div>
                 )}
                 <button
@@ -385,6 +434,6 @@ export function LineaPanel({
                     <span>{t('panel.clearHistory')}</span>
                 </button>
             </div>
-        </div>
+        </div >
     );
 }

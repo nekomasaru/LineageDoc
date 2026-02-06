@@ -41,9 +41,10 @@ interface Message {
 interface AIChatPaneProps {
     currentContent: string;
     onApplyContent?: (newContent: string) => void;
+    onSaveMilestone?: (summary: string) => void;
 }
 
-export function AIChatPane({ currentContent, onApplyContent }: AIChatPaneProps) {
+export function AIChatPane({ currentContent, onApplyContent, onSaveMilestone }: AIChatPaneProps) {
     const { t } = useLanguage();
     const { aiContext, currentDocumentTitle, setRightPanelTab, addAiMessage, clearAiSession } = useAppStore();
     const [inputValue, setInputValue] = useState('');
@@ -336,6 +337,21 @@ export function AIChatPane({ currentContent, onApplyContent }: AIChatPaneProps) 
                         <ActionPill icon={<AlertCircle size={12} />} label="校正" onClick={() => runAction('fix_grammar')} disabled={!aiContext.selectedText} color="red" />
                         <ActionPill icon={<Type size={12} />} label="やさしい" onClick={() => runAction('plainJapanese')} disabled={!aiContext.selectedText} color="orange" />
                         <ActionPill icon={<Layout size={12} />} label="構造化" onClick={() => runAction('format')} disabled={!aiContext.selectedText} color="teal" />
+                        <ActionPill
+                            icon={<MessageSquare size={12} />}
+                            label="AI指示"
+                            onClick={() => useAppStore.getState().setActiveModal('ai-instruction')}
+                            color="purple"
+                        />
+                        <ActionPill
+                            icon={<Sparkles size={12} />}
+                            label="マイルストーン保存"
+                            onClick={() => {
+                                onSaveMilestone?.('AIによる自動構造化と要約');
+                                useAppStore.getState().showToast('マイルストーンを保存しました', 'success');
+                            }}
+                            color="purple"
+                        />
                     </div>
 
                     {/* Creation Category */}

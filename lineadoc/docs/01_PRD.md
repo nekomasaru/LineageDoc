@@ -19,7 +19,7 @@
 2. **Visual Lineage & AI Collaboration** [DONE]
    - **Sibling Branching**: 最新の記述を維持したままAIが別案を提案する並列分岐ロジック。
    - **DAG可視化**: SVGとHTMLを組み合わせた履歴ツリー表示。
-
+   - **Semantic History Rail**: AIによる変更履歴の自動要約とマイルストーン管理（重要度に応じた視覚強調）。 [NEW]
 3. **Template & Governance** [DONE]
    - **カード型テンプレート選択**: 業務に応じた初期構成の自動注入。
    - **MDSCHEMA**: 文書構造のリアルタイムバリデーション（正規表現サポート済み）。

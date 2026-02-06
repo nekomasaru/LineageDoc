@@ -110,6 +110,8 @@ interface Version {
   content: string;
   created_at: string;
   commit_message: string | null;
+  isMilestone?: boolean;   // [NEW] マイルストーンフラグ
+  aiSummary?: string;      // [NEW] AIによる自動解説
 }
 
 interface HistoryTimelineProps {
@@ -205,6 +207,13 @@ export function HistoryTimeline({
                     <p className="text-xs text-slate-400 mb-2">
                       {format(new Date(version.created_at), 'yyyy/MM/dd HH:mm', { locale: ja })}
                     </p>
+
+                    {/* AI Summary Card */}
+                    {version.aiSummary && (
+                      <div className="mb-3 px-3 py-2 bg-purple-50 border-l-2 border-purple-400 rounded-r-md text-[11px] text-purple-900 animate-in fade-in slide-in-from-left-2">
+                        ✨ {version.aiSummary}
+                      </div>
+                    )}
                     
                     {/* アクションボタン */}
                     <div className="flex gap-2">

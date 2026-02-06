@@ -57,6 +57,11 @@ export interface AISelectionTooltipState {
     x: number;
     y: number;
 }
+export interface ToastState {
+    isVisible: boolean;
+    message: string;
+    type: 'success' | 'info' | 'warning';
+}
 
 interface AppState {
     // ===== ビューモード (Main Layout) =====
@@ -85,6 +90,10 @@ interface AppState {
     currentDocumentId: string | null;
     currentDocumentTitle: string;
     setCurrentDocument: (id: string | null, title?: string) => void;
+
+    // ===== 通知 (Toast) =====
+    toast: ToastState;
+    showToast: (message: string, type?: ToastState['type']) => void;
 
     // ===== モーダル管理 =====
     activeModal: 'export' | 'create-document' | 'ai-instruction' | 'legal' | 'settings' | null;
@@ -138,6 +147,15 @@ export const useAppStore = create<AppState>()(
                     ]
                 }
             })),
+
+            // Toast
+            toast: { isVisible: false, message: '', type: 'info' },
+            showToast: (message, type = 'info') => {
+                set({ toast: { isVisible: true, message, type } });
+                setTimeout(() => {
+                    set((state) => ({ toast: { ...state.toast, isVisible: false } }));
+                }, 3000);
+            },
 
             // Document Context
             currentDocumentId: null,

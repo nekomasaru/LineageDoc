@@ -6,8 +6,11 @@ export interface LineaEvent {
     timestamp: string;  // ISO8601
     type: 'user_edit' | 'ai_suggestion' | 'ai_branch' | 'save';
     content: string;    // その時点のドキュメント全文
-    summary?: string;   // 変更の概要（オプション）
+    summary?: string;   // ユーザーによる変更概要
+    aiSummary?: string; // AIによる自動生成サマリー
     version?: number;   // バージョン番号 (v1, v2, ...)
+    isMilestone?: boolean; // 組織的に重要な転換点か
+    importance?: number;  // 重要度 (1-5)
 }
 
 // グラフレイアウト用のノード型

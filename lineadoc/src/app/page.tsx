@@ -139,12 +139,16 @@ export default function V2Page() {
                     markdown,
                     'user_edit',
                     parentId,
-                    summary
+                    summary,
+                    false, // isMilestone
+                    1      // importance
                 );
 
                 console.log('[Page] Saved and history event added');
+                useAppStore.getState().showToast('履歴を保存しました', 'success');
             } else {
                 console.log('[Page] Saved (No content change, history skipped)');
+                useAppStore.getState().showToast('保存しました', 'info');
             }
 
             // 保存後はブランチモード解除
@@ -164,6 +168,25 @@ export default function V2Page() {
             initialValue: '',
         });
     }, []);
+
+    const handleSaveMilestone = useCallback((summary: string, importance: number = 3) => {
+        if (currentDocumentId && markdown) {
+            updateDocument(currentDocumentId, markdown);
+            const latest = getLatestEvent();
+            const parentId = latest?.id || null;
+
+            addEvent(
+                markdown,
+                'save',
+                parentId,
+                summary,
+                true, // isMilestone
+                importance,
+                `AIによって構造化された重要変更: ${summary}` // aiSummary dummy
+            );
+            console.log('[Page] Saved as Milestone');
+        }
+    }, [currentDocumentId, markdown, updateDocument, addEvent, getLatestEvent]);
 
     const handleStartBranch = useCallback((event: any) => {
         // モーダルを開いて理由を尋ねる
@@ -223,7 +246,9 @@ export default function V2Page() {
             event.content,
             'user_edit',
             getLatestEvent()?.id || null,
-            `v${event.version} から復元`
+            `v${event.version} から復元`,
+            false, // isMilestone
+            2      // importance (restoration is somewhat important)
         );
         console.log('[Page] Restored version as latest:', event.version);
         setRestoreConfirm({ isOpen: false, event: null });
@@ -367,6 +392,7 @@ export default function V2Page() {
                                     onMakeLatest={handleMakeLatest}
                                     onClearHistory={handleClearHistoryRequest}
                                     onApplyContent={handleApplyAiSuggestion}
+                                    onSaveMilestone={handleSaveMilestone}
                                 />
                             </Panel>
                         </>
@@ -416,18 +442,16 @@ export default function V2Page() {
                     const isAtLatest = !selectedEventId || (latest?.id === selectedEventId);
 
                     let parentId: string | null = null;
+                    const targetNode = selectedEventId ? getEventById(selectedEventId) : latest;
 
-                    if (isAtLatest && latest) {
-                        // 【User Requirement】最新履歴状態でAI指示を出した場合、一つ前の履歴からブランチとして生やす（兄弟）
-                        parentId = latest.parentId;
-                        console.log('[AI] Automated Sibling Branching from parent:', parentId);
-                    } else if (strategy === 'fork') {
-                        // 過去ノード選択中に「別案」を選んだ場合: そのノードの親から
-                        const current = getEventById(selectedEventId!);
-                        parentId = current?.parentId || null;
+                    if (strategy === 'fork') {
+                        // 【別案を作成】選択ノードの親からブランチを生やす（兄弟を作る）
+                        parentId = targetNode?.parentId || null;
+                        console.log('[AI] Forking (sibling) from parent:', parentId);
                     } else {
-                        // それ以外（過去ノードの延長など）
-                        parentId = selectedEventId || (latest?.id || null);
+                        // 【続きを作成】選択ノード（または最新）を直接の親にする
+                        parentId = targetNode?.id || null;
+                        console.log('[AI] Extending from node:', parentId);
                     }
 
                     // --- Mock AI Execution ---
@@ -451,6 +475,7 @@ export default function V2Page() {
                         setMarkdown(newEvent.content);
 
                         console.log('[AI] Sibling branch created:', newEvent.id);
+                        useAppStore.getState().showToast('AI提案を履歴に追加しました', 'success');
                     }, 1000);
                 }}
             />

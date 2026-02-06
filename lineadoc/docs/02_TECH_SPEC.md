@@ -62,7 +62,7 @@
       /_ui
         AIAssistantIcon.tsx # [NEW] Rich animated AI icon
     /stores
-      appStore.ts           # Global UI state (Hub/Spoke/Modals)
+      appStore.ts           # Global UI state (Hub/Spoke/Modals/Toast)
       documentStore.ts      # Metadata-driven document management
       projectStore.ts       # Team/Project hierarchy
       editorStore.ts        # Markdown & Mode state
@@ -88,7 +88,10 @@ interface LineaEvent {
   type: 'user_edit' | 'ai_suggestion' | 'ai_branch' | 'save';
   content: string;         // Full document content
   summary?: string;        // Change summary / Branch comment
+  aiSummary?: string;      // [NEW] AI-generated summary/insight
   version?: number;        // Sequential version number (v1, v2...)
+  isMilestone?: boolean;   // [NEW] Organizationally significant version
+  importance?: number;     // [NEW] Importance level (1-5)
 }
 ```
 
@@ -141,7 +144,13 @@ A hybrid rendering approach combining SVG for the graph connections and HTML for
   - `z-20`: **List Layer** (Foreground) - The scrollable list of history items alongside the graph.
   - `z-30`: **Comment Overlay** (Interaction) - Clickable comment labels positioned over the graph. Container is `pointer-events-none` but children are `pointer-events-auto`.
 
-### 2. Interaction & Modals
+### 2. Global Toast System
+Lightweight notification system managed in `appStore.ts`.
+- **Trigger**: Manual saves, AI generations, and successful actions.
+- **Placement**: Dynamically positioned near the relevant icon (e.g., right under the History icon in the Header).
+- **Feedback**: Clearly distinguishes between "Saved" (metadata only) and "History Saved" (content change).
+
+### 3. Interaction & Modals
 Browser native dialogs (`alert`, `confirm`, `prompt`) are replaced with custom React modals for better UX.
 
 - **InputModal**: Used for editing comments.
