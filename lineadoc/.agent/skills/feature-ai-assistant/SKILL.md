@@ -31,7 +31,13 @@ Vertex AI Premium (Gemini 2.5 Flash) を活用し、公務員を強力にサポ�
 - 新しいアクションは、Monaco の `cmdMap` と BlockNote の `getMentionMenuItems` の両方に必ず追加し、エディタ間の機能格差をなくす。
 - 現在の標準コマンド: `/summarize`, `/formal`, `/plain`, `/qa`, `/notice`, `/outline`, `/todo`, `/points`, `/consistency`, `/explain`, `/format`
 
-### 4. 高度な構造化出力の維持
+### 4. RAG パイプラインの管理
+- **Ingestion**: `pdf.js` や `mammoth` を使用したテキスト抽出ロジックの保守。
+- **Historical Indexing**: 履歴イベントの重要度（Milestone/Draft）判定と、意図サマリーのベクトル化。
+- **Embedding**: Vertex AI API を介したベクトル生成と、Supabase への保存処理。
+- **Search**: 内容検索（What）と意図検索（Why）の dual-mode 検索ロジックの保守。
+
+### 5. 高度な構造化出力の維持
 - 表形式の変換や Mermaid ダイアグラムの生成がプロンプトに含まれる場合、出力が Markdown として有効であることを常に検証する。
 
 ## 開発ガイドライン
