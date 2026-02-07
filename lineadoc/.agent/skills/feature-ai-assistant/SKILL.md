@@ -52,6 +52,11 @@ Vertex AI Premium (Gemini 2.5 Flash) を活用し、公務員を強力にサポ�
 - **Search & Source**: 外部情報の引用（Grounding）時は必ず「根拠のバッジ」やソース（URL等）を表示し、ネット情報と内部データの区別を明確にする。
 - **Session-based Context**: チャットログは永続化せずセッション限定とするが、対話中はドキュメント全体およびプロジェクト内の他ドキュメントを常に文脈に含める。
 - **Unified Experience**: Monaco・BlockNote 両エディタで、一貫した AI 操作を提供する。
-- **Feedback Integration**: AI指示や保存などのアクション成功時には、常に `showToast` を呼び出しユーザーに受理されたことを明示する。
+- **Clean Aesthetics**: AIの回答はカード装飾を排し、キャンバス（背景）に直接 Markdown で描画されるクリーンなスタイルを維持する（Claude/GPT Canvas風）。
+- **Input Efficiency**: 長文のユーザーコメントは自動的に折りたたみ表示とし、チャットログの視認性を確保する。
+- **No Toast Feedback**: コピー・適用などのアクション成功時には `showToast` を**呼んではならない**。代わりにボタン自体のラベルやアイコンを数秒間変化させる「インライン・フィードバック」を実装し、ユーザーの視線移動を最小限にする。
+- **Robustness**: 
+  - クリップボード操作は `execCommand` へのフォールバックを必ず含める。
+  - エディタへの反映は、範囲選択がない場合のデフォルト挿入位置（Monaco: Cursor, BlockNote: End）を適切に定義する。
 - **Security Transparency**: 「日本リージョン」「学習非利用」などの信頼性を UI を通じて能動的に提示する。
 - **Gov-Specialization**: 日本の自治体実務（公用文ルール、論理性チェック等）を深く理解したプロンプトを維持する。

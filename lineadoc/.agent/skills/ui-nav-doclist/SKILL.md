@@ -23,7 +23,8 @@ meta:
     - 新規プロジェクト作成への導線。
 2.  **Project Detail View (Document List)**:
     - プロジェクト内のドキュメント一覧表示。
-    - ドキュメントの選択、追加、削除。
+    - ドキュメントの選択、追加、削除、**複製 (Duplicate)**、**名前変更 (Rename)**。
+    - 各アイテムの右側に表示される「...」(MoreHorizontal) ボタンからのアクションメニュー。
     - プロジェクト設定へのアクセス。
 
 ## 実装詳細
@@ -46,11 +47,12 @@ meta:
 
 1. **文書一覧表示**: Supabaseから取得した文書をリスト表示
 2. **文書選択**: クリックで該当文書をエディタに読み込み
-3. **文書削除**: 確認後にソフトデリート
-4. **新規作成 (Template Selection)**:
+3. **文書操作**: 「...」メニュー（MoreHorizontal）から削除、複製、名前変更を実行。
+4. **文書複製**: 既存文書のコピーを生成し、タイトルに「 (コピー)」を付与。
+5. **新規作成 (Template Selection)**:
     - 単なる「新規作成」ではなく、**テンプレート選択画面（カード形式）**を表示する。
     - テンプレートごとに「初期Markdown」と「品質設定」が適用される。
-5. **リアルタイム更新**: 他のタブでの変更を反映（オプション）
+6. **リアルタイム更新**: 他のタブでの変更を反映（オプション）
 
 ## UIデザイン
 
@@ -213,50 +215,21 @@ export function DocumentList() {
                 <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{doc.title}</div>
-                  <div className="text-xs text-slate-400">
-                    {formatDistanceToNow(new Date(doc.updated_at), {
-                      addSuffix: true,
-                      locale: ja,
-                    })}
-                  </div>
                 </div>
 
-                {/* メニューボタン */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMenuOpenId(menuOpenId === doc.id ? null : doc.id);
-                  }}
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 rounded"
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-
-                {/* ドロップダウンメニュー */}
-                {menuOpenId === doc.id && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuOpenId(null);
-                      }}
-                    />
-                    <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget(doc.id);
-                          setMenuOpenId(null);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        削除
-                      </button>
-                    </div>
-                  </>
-                )}
+                {/* メニューボタン（三点リーダー） */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 rounded">
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => handleRename(doc.id)}>名前の変更</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDuplicate(doc.id)}>複製</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setDeleteTarget(doc.id)} className="text-red-600">削除</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             ))}
           </div>

@@ -84,7 +84,7 @@ interface AppState {
     setAiSelectionTooltip: (state: Partial<AISelectionTooltipState>) => void;
     clearAiContext: () => void;
     clearAiSession: () => void;
-    addAiMessage: (message: Omit<AIChatMessage, 'id' | 'timestamp'>) => void;
+    addAiMessage: (message: Omit<AIChatMessage, 'id' | 'timestamp'> & { id?: string }) => void;
 
     // ===== 現在のドキュメント (Spoke Context) =====
     currentDocumentId: string | null;
@@ -141,7 +141,7 @@ export const useAppStore = create<AppState>()(
                         ...state.aiContext.sessionMessages,
                         {
                             ...message,
-                            id: Math.random().toString(36).substring(7),
+                            id: message.id || Math.random().toString(36).substring(7),
                             timestamp: new Date()
                         }
                     ]

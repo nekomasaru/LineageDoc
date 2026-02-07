@@ -23,20 +23,20 @@ import {
     PenTool,
     SearchCode,
     LineChart,
-    AlertCircle
+    AlertCircle,
+    Copy,
+    Check,
+    ChevronDown,
+    ChevronUp
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useLanguage } from '@/lib/LanguageContext';
-import { useAppStore } from '@/stores/appStore';
+import { useAppStore, AIChatMessage } from '@/stores/appStore';
 import { AIAssistantIcon } from '@/components/_ui/AIAssistantIcon';
 import { PROMPT_TEMPLATES, AIActionType } from '@/lib/ai/promptTemplates';
 
-interface Message {
-    id: string;
-    role: 'assistant' | 'user';
-    content: string;
-    type?: 'text' | 'suggestion';
-    timestamp: Date;
-}
+// AIChatMessage is imported from appStore
 
 interface AIChatPaneProps {
     currentContent: string;
@@ -61,6 +61,7 @@ export function AIChatPane({ currentContent, onApplyContent, onSaveMilestone }: 
         if (sessionMessages.length === 0) {
             addAiMessage({
                 role: 'assistant',
+                id: 'greeting', // Explicitly set greeting ID to exclude "Apply" button
                 content: 'こんにちは。LineaDoc AI エージェントです。行政実務における文書作成や校正、論理性チェックなどをサポートします。また、プロジェクトのガバナンスや過去の公文書に基づいた最適な案の提示も可能です。何かお手伝いしましょうか？'
             });
         }
@@ -122,7 +123,7 @@ export function AIChatPane({ currentContent, onApplyContent, onSaveMilestone }: 
         // Simulation of AI using templates with MOCK RAG METADATA
         setTimeout(() => {
             let responseContent = '';
-            let sources: any[] | undefined = undefined;
+            let sources: AIChatMessage['sources'] = undefined;
             let confidence: 'high' | 'mid' | 'low' | undefined = undefined;
 
             if (actionType && PROMPT_TEMPLATES[actionType]) {
@@ -242,82 +243,34 @@ export function AIChatPane({ currentContent, onApplyContent, onSaveMilestone }: 
             {/* Messages Area */}
             <div
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth"
+                className="flex-1 overflow-y-auto space-y-2 scroll-smooth bg-slate-50/50"
             >
                 {messages.map((msg) => (
                     <div
                         key={msg.id}
-                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}
+                        className={`px-4 py-2 animate-in fade-in slide-in-from-bottom-2 duration-300`}
                     >
-                        <div className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                            <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm ${msg.role === 'assistant'
-                                ? 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white'
-                                : 'bg-slate-200 text-slate-500'
-                                }`}>
-                                {msg.role === 'assistant' ? <Bot size={18} /> : <User size={18} />}
+                        {msg.role === 'user' ? (
+                            <div className="flex justify-end">
+                                <UserMessage content={msg.content} />
                             </div>
-                            <div className="space-y-1">
-                                {msg.role === 'assistant' && msg.confidence && (
-                                    <div className={`flex items-center gap-1.5 mb-1 px-2 py-0.5 rounded-full text-[9px] font-bold w-fit ${msg.confidence === 'high' ? 'bg-emerald-100 text-emerald-700' :
-                                        msg.confidence === 'mid' ? 'bg-amber-100 text-amber-700' :
-                                            'bg-slate-100 text-slate-500'
-                                        }`}>
-                                        <BrainCircuit size={10} />
-                                        {msg.confidence === 'high' ? '確信度: 高' : msg.confidence === 'mid' ? '確信度: 中' : '一般知識'}
-                                    </div>
-                                )}
-                                <div className={`p-3 rounded-2xl text-sm shadow-sm ${msg.role === 'assistant'
-                                    ? 'bg-white text-slate-800 rounded-tl-none border border-slate-100'
-                                    : 'bg-indigo-600 text-white rounded-tr-none'
-                                    }`}>
-                                    {msg.content}
-                                </div>
-
-                                {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5 mt-2">
-                                        {msg.sources.map((src, i) => (
-                                            <div
-                                                key={i}
-                                                title={src.preview || src.title}
-                                                className={`flex items-center gap-1 px-2 py-0.5 rounded border text-[9px] font-bold cursor-help transition-all hover:scale-105 ${src.type === 'gov' ? 'bg-purple-50 text-purple-600 border-purple-100' :
-                                                    src.type === 'project' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
-                                                        'bg-cyan-50 text-cyan-600 border-cyan-100'
-                                                    }`}
-                                            >
-                                                {src.type === 'gov' ? <Zap size={8} /> :
-                                                    src.type === 'project' ? <FileText size={8} /> :
-                                                        <SearchCode size={8} />}
-                                                {src.title}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {msg.role === 'assistant' && msg.id !== messages[0]?.id && (
-                                    <div className="mt-2 flex justify-end">
-                                        <button
-                                            onClick={() => onApplyContent?.(msg.content)}
-                                            className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-all active:scale-95 border border-indigo-100"
-                                        >
-                                            <CheckCircle2 size={12} />
-                                            エディタに適用
-                                        </button>
-                                    </div>
-                                )}
-                                <p className={`text-[10px] text-slate-400 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </p>
+                        ) : (
+                            <div className="flex justify-start">
+                                <AssistantMessage
+                                    message={msg}
+                                    onApply={onApplyContent}
+                                />
                             </div>
-                        </div>
+                        )}
                     </div>
                 ))}
                 {isTyping && (
-                    <div className="flex justify-start animate-in fade-in duration-300">
-                        <div className="flex gap-3 max-w-[85%] items-end">
-                            <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center shadow-sm">
-                                <Bot size={18} />
+                    <div className="px-4 py-2 flex justify-start animate-in fade-in duration-300">
+                        <div className="flex gap-3 max-w-[85%] items-start">
+                            <div className="shrink-0 mt-1 w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center shadow-sm">
+                                <Bot size={14} />
                             </div>
-                            <div className="bg-white border border-slate-100 p-3 rounded-2xl rounded-tl-none flex gap-1 items-center">
+                            <div className="flex gap-1 items-center px-4 py-2">
                                 <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
                                 <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
                                 <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" />
@@ -434,6 +387,171 @@ export function AIChatPane({ currentContent, onApplyContent, onSaveMilestone }: 
                     >
                         <Send size={18} />
                     </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * User message with auto-collapsing
+ */
+function UserMessage({ content }: { content: string }) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const lines = content.split('\n');
+    const isLong = lines.length > 3 || content.length > 100;
+
+    return (
+        <div className="flex gap-2 max-w-[90%] flex-row-reverse">
+            <div className="shrink-0 mt-1 w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center shadow-sm">
+                <User size={14} />
+            </div>
+            <div className="space-y-1 flex flex-col items-end">
+                <div className={`p-3 rounded-2xl text-sm shadow-sm bg-indigo-600 text-white rounded-tr-none transition-all duration-300 ${!isExpanded && isLong ? 'max-h-[100px] overflow-hidden' : 'max-h-none'}`}>
+                    {content}
+                </div>
+                {isLong && (
+                    <button
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="text-[10px] text-indigo-500 font-bold hover:underline flex items-center gap-0.5 mt-0.5 px-1"
+                    >
+                        {isExpanded ? (
+                            <><ChevronUp size={10} /> 閉じる</>
+                        ) : (
+                            <><ChevronDown size={10} /> もっと見る</>
+                        )}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Assistant message with Markdown and Canvas style
+ */
+function AssistantMessage({ message: msg, onApply }: { message: AIChatMessage, onApply?: (c: string) => void }) {
+    const [copied, setCopied] = useState(false);
+    const [applied, setApplied] = useState(false);
+
+    const handleCopy = () => {
+        if (!msg.content) return;
+
+        const performCopy = async () => {
+            try {
+                if (navigator.clipboard) {
+                    await navigator.clipboard.writeText(msg.content);
+                    return true;
+                }
+            } catch (err) {
+                console.warn('Navigator clipboard failed, falling back:', err);
+            }
+
+            // Fallback: document.execCommand('copy')
+            try {
+                const textArea = document.createElement("textarea");
+                textArea.value = msg.content;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                textArea.style.top = "0";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                return successful;
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+                return false;
+            }
+        };
+
+        performCopy().then(success => {
+            if (success) {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            }
+        });
+    };
+
+    const handleApply = () => {
+        if (onApply) {
+            onApply(msg.content);
+            setApplied(true);
+            setTimeout(() => setApplied(false), 3000);
+        }
+    };
+
+    return (
+        <div className="flex gap-3 max-w-full items-start group">
+            <div className="shrink-0 mt-1 w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 text-white flex items-center justify-center shadow-sm">
+                <Bot size={14} />
+            </div>
+            <div className="flex-1 space-y-2 min-w-0">
+                {msg.confidence && (
+                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold w-fit ${msg.confidence === 'high' ? 'bg-emerald-100 text-emerald-700' :
+                        msg.confidence === 'mid' ? 'bg-amber-100 text-amber-700' :
+                            'bg-slate-200 text-slate-500'
+                        }`}>
+                        <BrainCircuit size={10} />
+                        {msg.confidence === 'high' ? '確信度: 高' : msg.confidence === 'mid' ? '確信度: 中' : '一般知識'}
+                    </div>
+                )}
+
+                <div className="text-sm leading-relaxed text-slate-800 prose prose-slate prose-sm max-w-none prose-p:my-1 prose-headings:mb-2 prose-headings:mt-4 first:prose-headings:mt-0">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {msg.content}
+                    </ReactMarkdown>
+                </div>
+
+                {msg.sources && msg.sources.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                        {msg.sources.map((src, i) => (
+                            <div
+                                key={i}
+                                title={src.preview || src.title}
+                                className={`flex items-center gap-1 px-2 py-0.5 rounded border text-[9px] font-bold cursor-help transition-all hover:scale-105 ${src.type === 'gov' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                                    src.type === 'project' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
+                                        'bg-cyan-50 text-cyan-600 border-cyan-100'
+                                    }`}
+                            >
+                                {src.type === 'gov' ? <Zap size={8} /> :
+                                    src.type === 'project' ? <FileText size={8} /> :
+                                        <SearchCode size={8} />}
+                                {src.title}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                <div className="pt-2 flex items-center justify-between">
+                    <div className="text-[10px] text-slate-400">
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                            onClick={handleCopy}
+                            className={`p-1.5 rounded-lg border flex items-center gap-1.5 text-[10px] font-bold transition-all ${copied
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                }`}
+                        >
+                            {copied ? <Check size={12} /> : <Copy size={12} />}
+                            {copied ? 'コピー済み' : 'コピー'}
+                        </button>
+                        {msg.id !== 'greeting' && onApply && (
+                            <button
+                                onClick={handleApply}
+                                className={`p-1.5 rounded-lg border flex items-center gap-1.5 text-[10px] font-bold transition-all ${applied
+                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                    : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100'
+                                    } shadow-sm active:scale-95`}
+                            >
+                                {applied ? <Check size={12} /> : <CheckCircle2 size={12} />}
+                                {applied ? '反映済み' : 'エディタに適用'}
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

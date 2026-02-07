@@ -23,6 +23,8 @@ Vertex AI Premium (Gemini 2.5 Flash) を基盤とし、行政文書の品位保�
   - **推敲・磨き上げ**: 公用文、要約、校正、やさしい、構造化
   - **整理・分析・生成**: ToDo、要件、論理性、解説、短く、長く
   - **履歴・統合操作**: AI指示（モーダル）、マイルストーン保存
+  - **Clean Canvas Output**: AIの回答はカード形式に囚われず、チャット背景に直接 Markdown で描画されるクリーンなスタイルを採用。
+  - **User Comment Folding**: 長文のユーザー入力は自動的に 3 行程度に折りたたまれ、「もっと見る」で展開可能。
 - **Structured Output**: Markdown テーブルや Mermaid ダイアグラムを積極的に活用し、視覚的な資料作成を支援。
 
 ### 3. Prompt Engineering (`promptTemplates.ts`)
@@ -99,7 +101,9 @@ AI の動作原理、データの扱い、セキュリティ対策（日本リ�
 - **セキュリティバッジ**: 「国内リージョン・学習非利用」の常態表示。
 - **Contextual Chat**: 過去の対話履歴（セッションベース）をプロンプトに含め、文脈を維持した継続的な指示出しを可能にする。
 - **Semantic History Rail**: AI要約の自動生成とマイルストーン属性の管理。
-- **Unified AI Command Bar**: AI指示モーダルと保存通知（Toast）の統合。
+- **Unified AI Command Bar**: AI指示モーダルと保存通知の統合（インライン化）。
+- **Aesthetic Refinement**: Claude風のクリーンなキャンバス表示と、ユーザーコメントの自動折りたたみ実装。
+- **Interaction Refinement (DONE)**: トースト通知の廃止、堅牢なコピー/挿入ロジックの導入。
 
 ### Phase 2: ガバナンスと実務高度化
 - **セーフティ・リンター (ガバナンス統合)**: 

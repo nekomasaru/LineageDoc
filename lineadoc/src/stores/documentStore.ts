@@ -26,6 +26,8 @@ interface DocumentState {
     updateTextlintConfig: (id: string, config: Record<string, boolean>) => void;
     updateCustomDictionary: (id: string, dictionary: any[]) => void;
     deleteDocument: (id: string) => void;
+    duplicateDocument: (id: string) => void;
+    renameDocument: (id: string, title: string) => void;
 
     setFilterProjectId: (projectId: string | null) => void;
     setFilterTag: (tag: string | null) => void;
@@ -121,9 +123,37 @@ export const useDocumentStore = create<DocumentState>()(
                 }));
             },
 
-            deleteDocument: (id) => {
+            deleteDocument: (id: string) => {
                 set((state) => ({
                     documents: state.documents.filter((doc) => doc.id !== id),
+                }));
+            },
+
+            duplicateDocument: (id: string) => {
+                const doc = get().documents.find(d => d.id === id);
+                if (!doc) return;
+
+                const newId = uuidv4();
+                const now = new Date().toISOString();
+                const newDoc: Document = {
+                    ...doc,
+                    id: newId,
+                    title: `${doc.title} (コピー)`,
+                    createdAt: now,
+                    updatedAt: now,
+                };
+
+                set((state) => ({
+                    documents: [newDoc, ...state.documents],
+                }));
+            },
+
+            renameDocument: (id: string, title: string) => {
+                const now = new Date().toISOString();
+                set((state) => ({
+                    documents: state.documents.map((doc) =>
+                        doc.id === id ? { ...doc, title, updatedAt: now } : doc
+                    ),
                 }));
             },
 

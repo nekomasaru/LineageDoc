@@ -41,13 +41,15 @@
 - **Breadcrumbs**:
     - `Home(Dashboard) > Team A > Project X > Document Title`
     - 階層構造を表示し、上位階層への戻り導線を確保。
+- **Icon Standardization**:
+    - ユーザーのメンタルモデルに合わせ、**インポートは「PCから上（↑）」、エクスポートは「PCから下（↓）」**のアイコン（Upload/Download）を採用。
 - **Document Title**:
     - パンくずリストの末尾、またはその下段に配置。インライン編集可能。
 - **Toolbar (Right)**:
     - **Actions**:
         - **Save**: 手動保存ボタン（Ctrl+S対応）。履歴に変更がない場合はスキップし、メタデータのみ更新。
-        - **Export**: <Upload /> アイコン。MD/TXT/JSON形式での書き出し。
-        - **Import**: <Download /> アイコン。MD/TXTファイルの取り込み。
+        - **Export**: <Download /> アイコン。MD/TXT/JSON形式でのPC保存。
+        - **Import**: <Upload /> アイコン。MD/TXTファイルのライブラリ取り込み。
     - **Editor Mode Toggle**: `Rich (WYSIWYG)` と `Code (Markdown)` の切り替え。
     - **Context Toggles**: `History`, `Attributes`, `Graph`, `Quality (Governance)`, `Assistant` (✨アイコン) の各右パネル開閉ボタン。
     - **Settings**: アプリケーション設定へのアクセス。
@@ -82,9 +84,9 @@
 - **LineaDoc AI Tab (✨)**:
     - **Selection Context**: 現在選択中のテキストプレビューを表示。
     - **Command Bar**: 横スクロール形式のクイックアクション（公用文、要約、マイルストーン保存等）。
-    - **Toast Feedback**: 「保存しました」等のフィードバックを履歴トグルボタン直下に表示。
+    - **Inline Feedback**: 「コピー」や「反映」などのボタンは、クリック成功時に「コピー済み」「反映済み」とラベルが変化するインライン・フィードバックを採用（トースト通知は不採用）。
     - **Chat UI**: 「LineaDoc AI エージェント」としての吹き出し形式の対話画面。
-    - **Direct Apply**: AIの提案テキストをエディタへ直接反映するボタン。
+    - **Direct Apply & Auto Focus**: AIの提案テキストをエディタへ直接反映し、反映後は自動的にエディタへフォーカスを戻す。
 - **Graph Tab**:
     - 関連ドキュメントのネットワークグラフ表示。
 
@@ -107,6 +109,7 @@
 ## 4. Modals
 - **Create Project Modal**: Dashboardから呼び出し。
 - **Create Document Modal**: Project Detailから呼び出し。
+- **Document Action Menu**: サイドバーの「...」または右クリックから呼び出し。名前変更、複製、削除に対応。
 - **Export Modal**: 出力形式（MD, TXT, JSON）の選択。
 - **Import Dialog**: ローカルファイル（MD, TXT）の取り込み。
 - **AI Instruction Modal**: AIへの執筆指示とブランチ戦略（続き作成/別案作成）の選択。

@@ -82,6 +82,10 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
         fileInputRef.current?.click();
     };
 
+    const handleExportClick = () => {
+        setActiveModal('export');
+    };
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -179,16 +183,23 @@ export function GlobalHeader({ onSave }: GlobalHeaderProps) {
                             <Save size={18} />
                         </button>
 
-                        {/* 1.5 Export Button */}
+                        {/* 1. IO Operations (Export/Import) */}
+                        <button
+                            className="p-2 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600 rounded-md transition-colors mr-1"
+                            title="エクスポート (Export MD)"
+                            onClick={handleExportClick}
+                        >
+                            <Download size={18} />
+                        </button>
                         <button
                             className="p-2 text-slate-400 hover:bg-cyan-50 hover:text-cyan-600 rounded-md transition-colors mr-2"
-                            title="エクスポート (Export)"
-                            onClick={() => setActiveModal('export')}
+                            title="インポート (Import MD)"
+                            onClick={handleImportClick}
                         >
                             <Upload size={18} />
                         </button>
 
-                        {/* 1.6 Import Button */}
+                        {/* Hidden file input for import */}
                         <input
                             type="file"
                             ref={fileInputRef}

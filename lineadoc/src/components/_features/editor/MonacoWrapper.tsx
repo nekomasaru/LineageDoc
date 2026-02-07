@@ -101,14 +101,30 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
       getEditor: () => editorRef.current,
       replaceSelection: (text: string) => {
         if (editorRef.current) {
-          const selection = editorRef.current.getSelection();
+          const editor = editorRef.current;
+          let selection = editor.getSelection();
+
+          // If no selection, use the current cursor position
+          if (!selection || (selection.startLineNumber === selection.endLineNumber && selection.startColumn === selection.endColumn)) {
+            const position = editor.getPosition();
+            if (position) {
+              selection = new monacoRef.current!.Selection(
+                position.lineNumber,
+                position.column,
+                position.lineNumber,
+                position.column
+              );
+            }
+          }
+
           if (selection) {
-            editorRef.current.executeEdits('ai-assistant', [{
+            editor.focus();
+            editor.executeEdits('ai-assistant', [{
               range: selection,
               text: text,
               forceMoveMarkers: true
             }]);
-            editorRef.current.pushUndoStop();
+            editor.pushUndoStop();
           }
         }
       }
@@ -296,11 +312,12 @@ export const MonacoWrapper = forwardRef<MonacoWrapperHandle, MonacoWrapperProps>
 
             const suggestions: Monaco.languages.CompletionItem[] = [
               {
-                label: 'AI Assistant',
+                label: 'LineaDoc AIエージェント',
                 kind: monaco.languages.CompletionItemKind.Bot,
                 documentation: 'AIに新しいブランチでの作業を指示します',
                 insertText: '@AI ',
                 range: range,
+                sortText: '0001', // Ensure it is at the top
                 command: {
                   id: 'trigger-ai-mention',
                   title: 'Trigger AI',

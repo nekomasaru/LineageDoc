@@ -165,6 +165,13 @@ function BlockNoteEditorInner({ className = '', overrideContent, onChange, handl
                     if (selection.blocks.length > 1) {
                         editor.removeBlocks(selection.blocks.slice(1));
                     }
+                } else {
+                    // Fallback: Insert at the end of the document
+                    editor.insertBlocks(
+                        [{ content: text }],
+                        editor.document[editor.document.length - 1],
+                        "after"
+                    );
                 }
             }
         }
