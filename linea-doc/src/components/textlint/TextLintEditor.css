@@ -1,7 +1,0 @@
-/* TextLintEditor.css */
-/* Tailwind is used, but specific overrides can go here */
-
-.textlint-editor-container {
-    /* Ensure it takes full height if placed in a full-height container */
-    min-height: 500px;
-}

@@ -1,9 +1,0 @@
-# 禁止用語
-extends: existence
-message: "'%s' は使用を避けてください。代わりに適切な表現を使用してください。"
-level: error
-ignorecase: true
-tokens:
-  - "等々"  # → 「等」を使用
-  - "したりする"  # → 「する」を使用
-  - "というような"  # → 直接的な表現を使用
