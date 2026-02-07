@@ -27,7 +27,10 @@ import {
     Copy,
     Check,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    Pin,
+    PinOff,
+    ExternalLink
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -35,6 +38,7 @@ import { useLanguage } from '@/lib/LanguageContext';
 import { useAppStore, AIChatMessage } from '@/stores/appStore';
 import { AIAssistantIcon } from '@/components/_ui/AIAssistantIcon';
 import { PROMPT_TEMPLATES, AIActionType } from '@/lib/ai/promptTemplates';
+import { ConfirmModal } from '@/components/_shared/ConfirmModal';
 
 // AIChatMessage is imported from appStore
 
@@ -46,10 +50,21 @@ interface AIChatPaneProps {
 
 export function AIChatPane({ currentContent, onApplyContent, onSaveMilestone }: AIChatPaneProps) {
     const { t } = useLanguage();
-    const { aiContext, currentDocumentTitle, setRightPanelTab, addAiMessage, clearAiSession } = useAppStore();
+    const {
+        aiContext,
+        currentDocumentTitle,
+        setRightPanelTab,
+        addAiMessage,
+        clearAiSession,
+        isRightPanelPinned,
+        setIsRightPanelPinned,
+        isAiChatFullPage,
+        setIsAiChatFullPage
+    } = useAppStore();
     const [inputValue, setInputValue] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [showPolishOptions, setShowPolishOptions] = useState(false);
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const messages = aiContext.sessionMessages;
@@ -195,27 +210,54 @@ export function AIChatPane({ currentContent, onApplyContent, onSaveMilestone }: 
 
     return (
         <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
-            {/* Header with Gradient */}
-            <div className="shrink-0 p-4 bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 shadow-md">
+            {/* Header with Gradient - Slimmed Down */}
+            <div className="shrink-0 p-2 px-3 bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 shadow-sm">
                 <div className="flex items-center justify-between text-white">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-white/20 p-1.5 rounded-xl backdrop-blur-md">
-                            <AIAssistantIcon size={24} animated={false} />
+                    <div className="flex items-center gap-2">
+                        <div className="bg-white/20 p-1 rounded-lg backdrop-blur-md">
+                            <AIAssistantIcon size={18} animated={false} />
                         </div>
-                        <div>
-                            <h3 className="text-sm font-bold leading-none">LineaDoc AI</h3>
-                            <span className="text-[10px] opacity-70">Powered by Vertex AI (Premium)</span>
+                        <div className="flex flex-col">
+                            <h3 className="text-xs font-bold leading-none">LineaDoc AI</h3>
                         </div>
                     </div>
-                    <button
-                        onClick={clearAiSession}
-                        title="会話をリセット"
-                        className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
-                    >
-                        <RefreshCcw size={16} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setIsAiChatFullPage(!isAiChatFullPage)}
+                            title={isAiChatFullPage ? "全画面を閉じる" : "全画面で開く"}
+                            className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                        >
+                            {isAiChatFullPage ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                        </button>
+                        {!isAiChatFullPage && (
+                            <button
+                                onClick={() => setIsRightPanelPinned(!isRightPanelPinned)}
+                                title={isRightPanelPinned ? "ピン留め解除" : "ピン留め固定"}
+                                className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                            >
+                                {isRightPanelPinned ? <PinOff size={14} /> : <Pin size={14} />}
+                            </button>
+                        )}
+                        <button
+                            onClick={() => setShowResetConfirm(true)}
+                            title="会話をリセット"
+                            className="p-1 hover:bg-white/20 rounded-md transition-colors"
+                        >
+                            <RefreshCcw size={14} />
+                        </button>
+                    </div>
                 </div>
             </div>
+
+            <ConfirmModal
+                isOpen={showResetConfirm}
+                onClose={() => setShowResetConfirm(false)}
+                onConfirm={clearAiSession}
+                title="会話のリセット"
+                message="これまでの会話内容が消去されます。よろしいですか？"
+                confirmText="リセットする"
+                variant="warning"
+            />
 
             {/* Selection Context Area */}
             {aiContext.selectedText && (

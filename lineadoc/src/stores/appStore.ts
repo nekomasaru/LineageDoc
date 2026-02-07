@@ -74,8 +74,12 @@ interface AppState {
 
     // ===== 右パネル (Context) =====
     rightPanelTab: RightPanelTab;
+    isRightPanelPinned: boolean;
+    isAiChatFullPage: boolean;
     setRightPanelTab: (tab: RightPanelTab) => void;
     toggleRightPanel: (tab: RightPanelTab) => void;
+    setIsRightPanelPinned: (pinned: boolean) => void;
+    setIsAiChatFullPage: (fullPage: boolean) => void;
 
     // ===== AI アシスタントコンテキスト =====
     aiContext: AIContext;
@@ -113,10 +117,14 @@ export const useAppStore = create<AppState>()(
 
             // Default: Panel Closed
             rightPanelTab: null,
+            isRightPanelPinned: false,
+            isAiChatFullPage: false,
             setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
             toggleRightPanel: (tab) => set((state) => ({
                 rightPanelTab: state.rightPanelTab === tab ? null : tab
             })),
+            setIsRightPanelPinned: (pinned) => set({ isRightPanelPinned: pinned }),
+            setIsAiChatFullPage: (fullPage) => set({ isAiChatFullPage: fullPage }),
 
             // AI Context
             aiContext: { selectedText: '', source: null, sessionMessages: [] },

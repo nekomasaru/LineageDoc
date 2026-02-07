@@ -44,16 +44,17 @@ meta:
 ┌─────────────────────────────────────────────────────────────┐
 │ Header: [Breadcrumbs]          [Save][Export][Import] [Tabs]│
 ├──────────────────────────────────────┬─┬────────────────────┤
-│                                      │ │                    │
-│                                      │R│   Context Panel    │
-│            Main Editor               │e│                    │
-│              (Flex-1)                │s│   - History        │
-│                                      │i│   - Attributes     │
-│                                      │z│   - Graph          │
-│                                      │e│   - Governance     │
-│                                      │ │   - Assistant (✨) │
-└──────────────────────────────────────┴─┴────────────────────┘
+│                                      │resize│   Context Panel    │
+│            Main Editor               │  (if  │                    │
+│              (Flex-1)                │pinned)│   - History        │
+│                                      │      │   - Assistant (✨) │
+└──────────────────────────────────────┴──────┴────────────────────┘
 ```
+
+- **Pinned State**: `react-resizable-panels` を使用したタイリング配置。
+- **Floating State**: 右パネルを `absolute inset-y-0 right-0 z-40` でエディタ上に重ね、影（`shadow-2xl`）で奥行きを表現。
+- **Full Page (Focus) State**: AIチャットなどを画面中央に最大化してオーバーレイ表示。背景に `backdrop-blur` を適用し、情報のノイズを遮断。
+- **Pin Toggle**: パネルヘッダーに配置されたアイコンにより状態を切り替える。
 
 - **コンテナ**: `h-screen flex flex-col`
 - **Main**: `flex-1 flex overflow-hidden`

@@ -5,6 +5,7 @@ import { Panel, Group as PanelGroup } from 'react-resizable-panels';
 import { GlobalHeader } from '@/components/_layout/GlobalHeader';
 import { DashboardView } from '@/components/_features/dashboard/DashboardView';
 import { RightContextPanel } from '@/components/_layout/RightContextPanel';
+import { AIChatPane } from '@/components/_features/ai/AIChatPane';
 import { SplitEditorLayout, SplitEditorLayoutHandle } from '@/components/_features/editor/SplitEditorLayout';
 import { ProofView } from '@/components/_features/proof/ProofView';
 import { ResizeHandle } from '@/components/_shared/ResizeHandle';
@@ -25,6 +26,7 @@ import { SettingsModal } from '@/components/_features/settings/SettingsModal';
 import { useHotkeys } from '@/hooks/useHotkeys';
 import { GovernanceView } from '@/components/_features/governance/GovernanceView';
 import { AISelectionTooltip } from '@/components/_features/ai/AISelectionTooltip';
+import { Maximize2 } from 'lucide-react';
 
 export default function V2Page() {
     const {
@@ -35,7 +37,10 @@ export default function V2Page() {
         setActiveModal,
         currentDocumentId,
         currentDocumentTitle,
-        setCurrentDocument
+        setCurrentDocument,
+        isRightPanelPinned,
+        isAiChatFullPage,
+        setIsAiChatFullPage
     } = useAppStore();
 
     const { markdown } = useEditorStore();
@@ -365,8 +370,8 @@ export default function V2Page() {
                         )}
                     </Panel>
 
-                    {/* Right Context Panel (Conditional) */}
-                    {rightPanelTab && (
+                    {/* Right Context Panel (Conditional - Pinned Mode) */}
+                    {rightPanelTab && isRightPanelPinned && (
                         <>
                             <ResizeHandle
                                 className="w-2 bg-slate-100 hover:bg-cyan-200 transition-colors border-l border-r border-slate-200 z-50"
@@ -379,7 +384,7 @@ export default function V2Page() {
                                 maxSize="90"
                                 collapsible
                                 className="bg-slate-50 relative"
-                                id="right-context-panel"
+                                id="right-context-panel-pinned"
                             >
                                 <RightContextPanel
                                     linea={linea}
@@ -398,6 +403,40 @@ export default function V2Page() {
                         </>
                     )}
                 </PanelGroup>
+
+                {/* Right Context Panel (Floating Mode) */}
+                {rightPanelTab && !isRightPanelPinned && (
+                    <div
+                        className="absolute inset-y-0 right-0 z-[60] w-[400px] shadow-2xl animate-in slide-in-from-right duration-300"
+                    >
+                        <RightContextPanel
+                            linea={linea}
+                            selectedEventId={selectedEventId || undefined}
+                            onSelectEvent={(id) => setSelectedEventId(id)}
+                            isBranching={isBranching}
+                            onStartBranch={handleStartBranch}
+                            onCancelBranch={handleCancelBranch}
+                            onEditComment={handleEditComment}
+                            onMakeLatest={handleMakeLatest}
+                            onClearHistory={handleClearHistoryRequest}
+                            onApplyContent={handleApplyAiSuggestion}
+                            onSaveMilestone={handleSaveMilestone}
+                        />
+                    </div>
+                )}
+
+                {/* AI Chat Full Page Mode Overlay */}
+                {isAiChatFullPage && (
+                    <div className="absolute inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-8 animate-in fade-in duration-300">
+                        <div className="bg-white w-full max-w-5xl h-full rounded-2xl shadow-2xl overflow-hidden relative border border-slate-200">
+                            <AIChatPane
+                                currentContent={linea?.events?.find((e: any) => e.isLatest)?.content || ''}
+                                onApplyContent={handleApplyAiSuggestion}
+                                onSaveMilestone={handleSaveMilestone}
+                            />
+                        </div>
+                    </div>
+                )}
             </main>
 
             {/* Global Modals place here if needed */}

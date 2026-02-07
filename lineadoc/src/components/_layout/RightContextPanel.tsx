@@ -3,7 +3,7 @@ import { LineaPanel } from '@/components/_features/lineage/LineaPanel';
 import { FrontmatterForm } from '@/components/_features/editor/FrontmatterForm';
 import { QualityPanel } from '@/components/_layout/panels/QualityPanel';
 import { useLinea } from '@/hooks/useLinea';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Pin, PinOff, X } from 'lucide-react';
 import { useQualityStore } from '@/stores/qualityStore';
 import { AIChatPane } from '@/components/_features/ai/AIChatPane';
 
@@ -36,7 +36,13 @@ export function RightContextPanel({
     onApplyContent,
     onSaveMilestone,
 }: RightContextPanelProps) {
-    const { rightPanelTab, currentDocumentId } = useAppStore();
+    const {
+        rightPanelTab,
+        setRightPanelTab,
+        currentDocumentId,
+        isRightPanelPinned,
+        setIsRightPanelPinned
+    } = useAppStore();
 
     // Linea Data from props or fallback
     const {
@@ -67,7 +73,34 @@ export function RightContextPanel({
     }
 
     return (
-        <div className="h-full bg-slate-50 flex flex-col border-l border-slate-200">
+        <div className="h-full bg-slate-50 flex flex-col border-l border-slate-200 shadow-xl lg:shadow-none">
+            {/* Global Panel Controls (Visible in Floating Mode or for Non-AI tabs) */}
+            {!isRightPanelPinned && rightPanelTab !== 'assistant' && (
+                <div className="shrink-0 flex items-center justify-between p-2 px-3 bg-white border-b border-slate-200">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        {rightPanelTab === 'history' ? '変更履歴' :
+                            rightPanelTab === 'attributes' ? '属性編集' :
+                                rightPanelTab === 'quality' ? '品質チェック' :
+                                    rightPanelTab === 'assistant' ? 'AIアシスタント' : 'コンテキスト'}
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setIsRightPanelPinned(true)}
+                            title="横に固定する"
+                            className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                            <Pin size={14} />
+                        </button>
+                        <button
+                            onClick={() => setRightPanelTab(null)}
+                            title="閉じる"
+                            className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                </div>
+            )}
             {rightPanelTab === 'history' && (
                 isLineaLoaded ? (
                     <LineaPanel
